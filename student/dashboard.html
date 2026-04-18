@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Student Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .welcome-banner { background: linear-gradient(135deg, rgba(37,99,235,0.2), rgba(6,182,212,0.12)); border: 1px solid rgba(37,99,235,0.35); border-radius: var(--radius-xl); padding: 28px 32px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .welcome-text { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+    .welcome-sub { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+    .student-info-pill { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border); border-radius: var(--radius-full); padding: 10px 18px; font-size: 13px; }
+    .quick-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-top: 28px; }
+    .quick-link-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 20px; text-align: center; text-decoration: none; color: var(--text-secondary); transition: var(--transition); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .quick-link-card:hover { border-color: var(--primary); background: rgba(37,99,235,0.08); color: var(--primary-light); transform: translateY(-3px); }
+    .quick-link-label { font-size: 13px; font-weight: 600; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .ann-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 16px 20px; display: flex; align-items: flex-start; gap: 14px; margin-bottom: 10px; transition: var(--transition); }
+    .ann-card:hover { border-color: var(--glass-border-hover); }
+    .ann-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .ann-desc { font-size: 13px; color: var(--text-secondary); }
+    .ann-date { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+    .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media(max-width:768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" id="mobile-menu" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div id="content">
+        <div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:16px;">
+          <div class="spinner" style="display:block;width:40px;height:40px;border-width:3px;"></div>
+          <div style="color:var(--text-muted)">Loading your dashboard...</div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { showToast, buildSidebar, formatDate, safeAsync } from '../js/utils.js';
+    const NAV = [
+      { label: 'Main', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard', active: true },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
+        { href: 'fees.html', icon: 'payments', text: 'Fees' },
+      ]},
+      { label: 'Resources', items: [
+        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
+        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' }
+      ]}
+    ];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['student']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        await loadDashboard(user.uid, profile);
+      } catch (e) { window.location.href = '../index.html'; }
+    }
+    async function loadDashboard(uid, profile) {
+      const attData = await safeAsync(() => fetchAtt(uid), null, null);
+      const marksData = await safeAsync(() => fetchMarks(uid), null, null);
+      const feesData = await safeAsync(() => fetchFees(uid), null, null);
+      const anns = await safeAsync(() => fetchAnns(), null, null);
+      const attPct = attData ? attData.overall : null;
+      const feeStatus = feesData ? feesData.status : null;
+      document.getElementById('content').innerHTML = `
+        <div class="welcome-banner">
+          <div>
+            <div class="welcome-text">Welcome back, ${profile.name ? profile.name.split(' ')[0] : 'Student'}!</div>
+            <div class="welcome-sub">${new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
+          </div>
+        </div>
+
+          <div class="stat-card pink"><div class="stat-icon pink"><span class="icon icon-filled icon-xl">campaign</span></div><div class="stat-info"><div class="stat-value">${anns ? anns.length : '—'}</div><div class="stat-label">Announcements</div></div></div>
+        </div>
+        <div class="dashboard-grid">
+          <div>
+            <div class="section-title">Recent Announcements</div>
+            ${anns && anns.length ? anns.map(a => `
+              <div class="ann-card">
+                <span class="icon icon-filled" style="color:var(--primary-light);padding-top:2px;">${a.priority === 'Urgent' ? 'error' : a.priority === 'Event' ? 'celebration' : 'push_pin'}</span>
+                <div>
+                  <div class="ann-title">${a.title}</div>
+                  <div class="ann-desc">${a.body}</div>
+                  <div class="ann-date">${formatDate(a.createdAt)} &nbsp;&middot;&nbsp; <span class="badge ${a.priority === 'Urgent' ? 'badge-danger' : a.priority === 'Event' ? 'badge-info' : 'badge-purple'}">${a.priority || 'Info'}</span></div>
+                </div>
+              </div>`).join('') : '<div style="color:var(--text-muted);font-size:14px;padding:16px">No announcements yet.</div>'}
+          </div>
+          <div>
+            <div class="section-title">Quick Access</div>
+            <div class="quick-links">
+              <a href="attendance.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--primary-light)">calendar_month</span><div class="quick-link-label">Attendance</div></a>
+              <a href="marks.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--secondary)">grade</span><div class="quick-link-label">Marks</div></a>
+              <a href="fees.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--warning)">payments</span><div class="quick-link-label">Fees</div></a>
+              <a href="materials.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--accent)">library_books</span><div class="quick-link-label">Materials</div></a>
+              <a href="announcements.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--success)">campaign</span><div class="quick-link-label">Notices</div></a>
+            </div>
+          </div>
+        </div>`;
+    }
+    async function fetchAtt(uid) { const q = query(collection(db,'attendance'),where('studentId','==',uid)); const s=await getDocs(q); let t=0,p=0; s.forEach(d=>{t++;if(d.data().status==='present')p++;}); return {overall:t?Math.round(p/t*100):0}; }
+    async function fetchMarks(uid) { const q = query(collection(db,'marks'),where('studentId','==',uid)); const s=await getDocs(q); if(s.empty)return{avg:'—'}; let sum=0,c=0; s.forEach(d=>{const m=d.data();if(m.total!=null){sum+=m.total;c++;}}); return{avg:c?(sum/c).toFixed(1):'—'}; }
+    async function fetchFees(uid) { const q = query(collection(db,'fees'),where('studentId','==',uid),limit(1)); const s=await getDocs(q); if(s.empty)return{status:'N/A'}; return s.docs[0].data(); }
+    async function fetchAnns() { const q=query(collection(db,'announcements'),orderBy('createdAt','desc'),limit(5)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

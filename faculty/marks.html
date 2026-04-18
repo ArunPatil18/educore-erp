@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Enter Marks</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .marks-row { display: grid; grid-template-columns: 1fr 100px 100px 100px 90px; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+    .marks-row:last-child { border-bottom: none; }
+    .marks-head { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+    .total-chip { background: rgba(37,99,235,.12); border: 1px solid rgba(37,99,235,.3); border-radius: var(--radius-md); padding: 6px 12px; font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--primary-light); text-align: center; }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Enter Marks</h1><div class="page-subtitle">Enter CIE and assignment marks for students</div></div>
+      <div id="error-zone"></div>
+      <div class="card" style="max-width:680px;margin-bottom:24px;">
+        <div class="form-group"><label class="form-label">Select Subject</label><select class="form-control" id="subject-sel"><option value="">-- Select Subject --</option></select></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Semester Filter</label><input class="form-control" type="number" id="filter-sem" placeholder="e.g. 5" min="1" max="8" /></div>
+          <div class="form-group"><label class="form-label">Section Filter</label><input class="form-control" type="text" id="filter-sec" placeholder="e.g. A" maxlength="2" style="text-transform:uppercase;" /></div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadStudents()" style="margin-bottom:0;">Load Students</button>
+      </div>
+      <div id="marks-section" style="display:none;"></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, setDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, showToast } from '../js/utils.js';
+    const NAV = [
+      { label: 'Faculty', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Enter Marks', active: true },
+        { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
+      ]}
+    ];
+    let faculty, subjects=[], students=[];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['faculty']);
+        faculty = user;
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        subjects = await safeAsync(async () => { const q=query(collection(db,'subjects'),where('facultyId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load subjects') || [];
+        const sel = document.getElementById('subject-sel');
+        subjects.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=`${s.name} (${s.code})`;sel.appendChild(o);});
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    function calcTotal(uid) {
+      const c1=parseFloat(document.getElementById(`c1-${uid}`).value)||0;
+      const c2=parseFloat(document.getElementById(`c2-${uid}`).value)||0;
+      const as=parseFloat(document.getElementById(`as-${uid}`).value)||0;
+      document.getElementById(`tot-${uid}`).textContent=c1+c2+as;
+    }
+    window.loadStudents = async function() {
+      const subId=document.getElementById('subject-sel').value;
+      const sem = document.getElementById('filter-sem').value;
+      const sec = document.getElementById('filter-sec').value.trim().toUpperCase();
+
+      if(!subId){showToast('Please select a subject','warning');return;}
+      if (!sem || !sec) { showToast('Please provide both Semester and Section filters', 'warning'); return; }
+
+      const sub=subjects.find(s=>s.id===subId);
+      
+      students=await safeAsync(async()=>{
+        const q=query(
+          collection(db,'users'),
+          where('role','==','student'),
+          where('department','==',sub.department),
+          where('semester','==',parseInt(sem)),
+          where('section','==',sec)
+        );
+        const s=await getDocs(q);
+        return s.docs.map(d=>({id:d.id,...d.data()}));
+      },null,null)||[];
+
+      if(!students.length) {
+        document.getElementById('marks-section').innerHTML = `<div class="card" style="text-align:center;color:var(--text-muted);padding:24px;">No students found for this semester and section.</div>`;
+        document.getElementById('marks-section').style.display='block';
+        return;
+      }
+
+      document.getElementById('marks-section').innerHTML=`
+        <div class="card">
+          <div style="font-size:16px;font-weight:700;margin-bottom:20px;">${sub.name} (Sem ${sem} Sec ${sec}) — ${students.length} Students</div>
+          <div class="marks-row"><div class="marks-head">Student</div><div class="marks-head" style="text-align:center">CIE 1 (/30)</div><div class="marks-head" style="text-align:center">CIE 2 (/30)</div><div class="marks-head" style="text-align:center">Asgn (/20)</div><div class="marks-head" style="text-align:center">Total</div></div>
+          ${students.map(s=>`
+            <div class="marks-row">
+              <div><div style="font-size:14px;font-weight:600;">${s.name}</div><div style="font-size:12px;color:var(--text-muted);font-family:var(--font-display);font-weight:600;">${s.usn||s.prn||s.email}</div></div>
+              <input class="form-control" id="c1-${s.id}" type="number" min="0" max="30" placeholder="0" oninput="calcTotal('${s.id}')" style="text-align:center"/>
+              <input class="form-control" id="c2-${s.id}" type="number" min="0" max="30" placeholder="0" oninput="calcTotal('${s.id}')" style="text-align:center"/>
+              <input class="form-control" id="as-${s.id}" type="number" min="0" max="20" placeholder="0" oninput="calcTotal('${s.id}')" style="text-align:center"/>
+              <div class="total-chip" id="tot-${s.id}">0</div>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-primary" onclick="saveMarks('${subId}')" style="margin-top:20px;justify-content:center;width:100%;max-width:320px;" id="save-btn">Save All Marks</button>`;
+      document.getElementById('marks-section').style.display='block';
+    };
+    window.saveMarks = async function(subId) {
+      const sub=subjects.find(s=>s.id===subId);
+      const btn=document.getElementById('save-btn');btn.disabled=true;btn.textContent='Saving...';
+      try {
+        const promises=students.map(s=>{
+          const cie1=parseFloat(document.getElementById(`c1-${s.id}`).value)||0;
+          const cie2=parseFloat(document.getElementById(`c2-${s.id}`).value)||0;
+          const assignment=parseFloat(document.getElementById(`as-${s.id}`).value)||0;
+          return setDoc(doc(db,'marks',`${s.id}_${subId}`),{studentId:s.id,studentName:s.name,subjectCode:sub.code,subjectName:sub.name,facultyId:faculty.uid,cie1,maxCie1:30,cie2,maxCie2:30,assignment,maxAssignment:20,total:cie1+cie2+assignment,updatedAt:serverTimestamp()});
+        });
+        await Promise.all(promises);
+        showToast(`Marks saved for ${students.length} students`,'success');
+      } catch(e){showToast('Failed: '+e.message,'error');}
+      finally{btn.disabled=false;btn.textContent='Save All Marks';}
+    };
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

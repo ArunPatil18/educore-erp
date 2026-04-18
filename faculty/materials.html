@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Study Materials (Faculty)</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .upload-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: 32px; max-width: 600px; }
+    .drive-steps { background: rgba(37,99,235,.07); border: 1px solid rgba(37,99,235,.2); border-radius: var(--radius-md); padding: 18px 22px; margin-bottom: 28px; }
+    .mat-row { display: flex; align-items: center; gap: 14px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Study Materials</h1><div class="page-subtitle">Share Google Drive links with students</div></div>
+      <div class="drive-steps">
+        <div style="font-size:14px;font-weight:600;color:var(--primary-light);margin-bottom:10px;">How to share a Google Drive file:</div>
+        <ol style="padding-left:18px;font-size:13px;color:var(--text-secondary);line-height:2;">
+          <li>Upload your PDF/PPT/DOC to <strong>Google Drive</strong></li>
+          <li>Right-click the file &rarr; <strong>Share</strong></li>
+          <li>Change access to <strong>Anyone with the link</strong></li>
+          <li>Click <strong>Copy link</strong> and paste it below</li>
+        </ol>
+      </div>
+      <div class="upload-card">
+        <div style="font-size:16px;font-weight:700;margin-bottom:20px;">Add New Material</div>
+        <form id="mat-form">
+          <div class="form-group"><label class="form-label">Material Name</label><input class="form-control" id="mat-name" placeholder="e.g. Unit 1 Notes" required /></div>
+          <div class="form-group"><label class="form-label">Google Drive Link</label><input class="form-control" id="mat-url" type="url" placeholder="https://drive.google.com/file/..." required /></div>
+          <div class="grid-2">
+            <div class="form-group"><label class="form-label">Subject Code</label><input class="form-control" id="mat-code" placeholder="e.g. CS501" required /></div>
+            <div class="form-group"><label class="form-label">Subject Name</label><input class="form-control" id="mat-subj" placeholder="e.g. Operating Systems" required /></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label class="form-label">File Type</label><select class="form-control" id="mat-type"><option value="drive">Google Drive</option><option value="pdf">PDF</option><option value="ppt">PPT / Slides</option><option value="doc">Document</option><option value="other">Other</option></select></div>
+            <div class="form-group"><label class="form-label">Description (optional)</label><input class="form-control" id="mat-desc" placeholder="e.g. Covers chapters 1-4" /></div>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" style="justify-content:center;" id="submit-btn">Share with Students</button>
+        </form>
+      </div>
+      <div style="font-size:16px;font-weight:700;margin:32px 0 16px;">Materials You Have Shared</div>
+      <div id="my-mats"><div style="color:var(--text-muted);font-size:14px;">Loading...</div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, addDoc, deleteDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, showToast, formatDate } from '../js/utils.js';
+    const NAV = [
+      { label: 'Faculty', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
+        { href: 'materials.html', icon: 'library_books', text: 'Study Materials', active: true },
+      ]}
+    ];
+    let currentUser, profile;
+    const typeIcon = {drive:'folder',pdf:'picture_as_pdf',ppt:'slideshow',doc:'description',other:'insert_drive_file'};
+    async function init() {
+      try {
+        const { user } = await requireAuth(['faculty']);
+        currentUser=user; profile=await safeAsync(()=>getUserProfile(user.uid),null,null)||{};
+        document.getElementById('sidebar').innerHTML=buildSidebar('Faculty',profile.name||user.email,NAV);
+        document.getElementById('logout-btn').addEventListener('click',logoutUser);
+        await loadMats();
+      } catch(e){window.location.href='../index.html';}
+    }
+    async function loadMats() {
+      const mats=await safeAsync(async()=>{const q=query(collection(db,'materials'),where('facultyId','==',currentUser.uid),orderBy('uploadedAt','desc'));const s=await getDocs(q);return s.docs.map(d=>({id:d.id,...d.data()}));},null,null)||[];
+      document.getElementById('my-mats').innerHTML=mats.length?mats.map(m=>`
+        <div class="mat-row">
+          <span class="icon icon-filled icon-lg" style="color:var(--primary-light)">${typeIcon[m.type]||'insert_drive_file'}</span>
+          <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name}</div><div style="font-size:12px;color:var(--text-muted)">${m.subjectCode} &middot; ${formatDate(m.uploadedAt)}</div></div>
+          <a href="${m.url}" target="_blank" class="btn btn-secondary" style="padding:7px 14px;font-size:12px;flex-shrink:0">Preview</a>
+          <button class="btn btn-danger" style="padding:7px 14px;font-size:12px;flex-shrink:0" onclick="delMat('${m.id}')">Delete</button>
+        </div>`).join(''):`<div style="color:var(--text-muted);font-size:14px;padding:16px 0">No materials shared yet.</div>`;
+    }
+    document.getElementById('mat-form').addEventListener('submit',async e=>{
+      e.preventDefault();const btn=document.getElementById('submit-btn');btn.disabled=true;btn.textContent='Sharing...';
+      try{await addDoc(collection(db,'materials'),{name:document.getElementById('mat-name').value.trim(),url:document.getElementById('mat-url').value.trim(),subjectCode:document.getElementById('mat-code').value.trim().toUpperCase(),subjectName:document.getElementById('mat-subj').value.trim(),type:document.getElementById('mat-type').value,description:document.getElementById('mat-desc').value.trim(),uploadedBy:profile.name||currentUser.email,facultyId:currentUser.uid,uploadedAt:serverTimestamp()});showToast('Material shared!','success');e.target.reset();await loadMats();}catch(err){showToast('Failed: '+err.message,'error');}finally{btn.disabled=false;btn.textContent='Share with Students';}
+    });
+    window.delMat=async function(id){if(!confirm('Remove this material?'))return;try{await deleteDoc(doc(db,'materials',id));showToast('Removed','success');loadMats();}catch(e){showToast('Error: '+e.message,'error');}};
+    window.toggleSidebar=()=>document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

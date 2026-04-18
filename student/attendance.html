@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Attendance</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .att-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .att-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 22px; transition: var(--transition); }
+    .att-card:hover { border-color: var(--glass-border-hover); transform: translateY(-2px); }
+    .subj-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .subj-code { font-size: 11px; color: var(--text-muted); margin-bottom: 14px; }
+    .att-pct { font-family: var(--font-display); font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+    .att-counts { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Attendance</h1><div class="page-subtitle">Track your subject-wise attendance</div></div>
+      <div id="error-zone"></div>
+      <div id="content"><div style="display:flex;align-items:center;justify-content:center;height:40vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, attClass, progressColor, safeAsync } from '../js/utils.js';
+    const NAV = [
+      { label: 'Main', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance', active: true },
+        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
+        { href: 'fees.html', icon: 'payments', text: 'Fees' },
+      ]},
+      { label: 'Resources', items: [
+        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
+        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' }
+      ]}
+    ];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['student']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        await loadAttendance(user.uid, profile);
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    async function loadAttendance(uid, profile) {
+      const data = await safeAsync(async () => {
+        const subjects = {};
+        
+        // 1. Pre-fill catalog subjects with 0/0 attendance
+        if (profile.department && profile.semester) {
+           const sq = query(collection(db, 'master_subjects'));
+           const sqSnap = await getDocs(sq);
+           const allCatalog = sqSnap.docs.map(d=>d.data());
+           allCatalog.forEach(c => {
+             if((c.department||'').toLowerCase().trim() === (profile.department||'').toLowerCase().trim() && parseInt(c.semester) === parseInt(profile.semester)) {
+                subjects[c.code] = { name: c.name, code: c.code, semester: c.semester, total: 0, present: 0 };
+             }
+           });
+        }
+
+        // 2. Fetch and merge actual attendance records
+        const q = query(collection(db,'attendance'),where('studentId','==',uid));
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => { 
+           const r=d.data(); 
+           if(!subjects[r.subjectCode]) subjects[r.subjectCode]={name:r.subjectName,code:r.subjectCode,semester:r.semester||profile.semester||'Current Semester',total:0,present:0}; 
+           subjects[r.subjectCode].total++; 
+           if(r.status==='present')subjects[r.subjectCode].present++; 
+        });
+        return Object.values(subjects);
+      }, 'error-zone', 'Attendance data failed to load');
+      if (!data) return;
+      if (!data.length) { document.getElementById('content').innerHTML = `<div class="card" style="text-align:center;padding:48px;color:var(--text-muted)">No attendance records or assigned courses found.</div>`; return; }
+      const totalP = data.reduce((a,b)=>a+b.present,0), totalC = data.reduce((a,b)=>a+b.total,0);
+      const overall = totalC ? Math.round(totalP/totalC*100) : 0;
+      document.getElementById('content').innerHTML = `
+        <div class="card" style="margin-bottom:24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;">Overall Attendance</div>
+            <div style="font-family:var(--font-display);font-size:56px;font-weight:800;" class="${attClass(overall)}">${overall}%</div>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <div class="progress-bar-wrap" style="height:12px;margin-bottom:10px;"><div class="progress-bar-fill ${progressColor(overall)}" style="width:${overall}%"></div></div>
+            <div style="font-size:13px;color:var(--text-secondary);">${totalP} present out of ${totalC} classes</div>
+            <div style="margin-top:10px;"><span class="badge ${overall>=75?'badge-success':'badge-danger'}">${overall>=75?'Safe for exams':'Attendance shortage'}</span></div>
+          </div>
+        </div>
+        <div style="font-size:16px;font-weight:700;margin:32px 0 16px;">Subject-wise Breakdown</div>
+        ${(() => {
+          const bySem = {};
+          data.forEach(s => {
+            const sem = s.semester || 'Current Semester';
+            if (!bySem[sem]) bySem[sem] = [];
+            bySem[sem].push(s);
+          });
+          const sortedSems = Object.keys(bySem).sort((a,b) => (parseInt(a)||99) - (parseInt(b)||99));
+          return sortedSems.map(sem => `
+            ${sem!=='Current Semester' ? `<div style="font-size:14px;font-weight:600;margin:20px 0 12px;color:var(--text-secondary)">Semester ${sem}</div>` : ''}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+              ${bySem[sem].map(s => { 
+                 const pct=s.total?Math.round(s.present/s.total*100):0; 
+                 const need=pct<75?Math.ceil((0.75*s.total-s.present)/0.25):0; 
+                 return `
+                 <div class="card" style="display:flex;align-items:center;gap:16px;">
+                   <div style="background:var(--primary);color:#fff;width:52px;height:52px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex-shrink:0;">
+                     ${(s.name||s.code).charAt(0).toUpperCase()}
+                   </div>
+                   <div style="flex:1;min-width:0;">
+                     <div style="font-size:15px;font-weight:700;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name||s.code}</div>
+                     <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">
+                       Course Code: <strong style="color:var(--text-primary)">${s.code}</strong>
+                     </div>
+                     <div class="progress-bar-wrap" style="height:6px;margin-bottom:8px;"><div class="progress-bar-fill ${progressColor(pct)}" style="width:${pct}%"></div></div>
+                     <div style="font-size:12px;color:var(--text-secondary);">
+                       <span style="font-weight:600;color:var(--text-primary);">${s.present}</span> / ${s.total} Classes Attended
+                     </div>
+                   </div>
+                   <div style="display:flex;flex-direction:column;align-items:flex-end;">
+                     <div class="${attClass(pct)}" style="font-family:var(--font-display);font-size:28px;font-weight:800;line-height:1;">${pct}%</div>
+                     ${need>0?`<div style="font-size:11px;color:var(--danger);white-space:nowrap;margin-top:6px;">Need ${need} more classes</div>`:`<div style="font-size:11px;color:var(--success);white-space:nowrap;margin-top:6px;">Eligible for exams</div>`}
+                   </div>
+                 </div>`; 
+              }).join('')}
+            </div>
+          `).join('');
+        })()}
+        <div class="table-wrapper" style="margin-top:28px;">
+          <div class="table-header"><div class="table-title">Detailed Records</div></div>
+          <table class="data-table"><thead><tr><th>Subject</th><th>Code</th><th>Attended</th><th>Total</th><th>Percentage</th><th>Status</th></tr></thead>
+          <tbody>${data.map(s=>{const pct=s.total?Math.round(s.present/s.total*100):0;return`<tr><td style="color:var(--text-primary);font-weight:500;">${s.name||s.code}</td><td><span class="badge badge-purple">${s.code}</span></td><td>${s.present}</td><td>${s.total}</td><td><span class="${attClass(pct)}">${pct}%</span></td><td><span class="badge ${pct>=75?'badge-success':pct>=60?'badge-warning':'badge-danger'}">${pct>=75?'Safe':pct>=60?'Warning':'Shortage'}</span></td></tr>`;}).join('')}</tbody></table>
+        </div>`;
+    }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

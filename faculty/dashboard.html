@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Faculty Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Faculty Dashboard</h1><div class="page-subtitle">Manage attendance, marks, and study materials</div></div>
+      <div id="error-zone"></div>
+      <div id="content"><div style="display:flex;align-items:center;justify-content:center;height:40vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync } from '../js/utils.js';
+    const NAV = [
+      { label: 'Faculty', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard', active: true },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
+        { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
+      ]},
+      { label: 'Communication', items: [
+        { href: '../student/announcements.html', icon: 'campaign', text: 'Announcements' },
+      ]}
+    ];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['faculty']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        const subjects = await safeAsync(async () => { const q=query(collection(db,'subjects'),where('facultyId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load subjects') || [];
+        document.getElementById('content').innerHTML = `
+          <div class="stats-grid" style="margin-bottom:28px;">
+            <div class="stat-card purple"><div class="stat-icon purple"><span class="icon icon-filled icon-xl">library_books</span></div><div class="stat-info"><div class="stat-value">${subjects.length}</div><div class="stat-label">Assigned Subjects</div></div></div>
+            <div class="stat-card cyan"><div class="stat-icon cyan"><span class="icon icon-filled icon-xl">group</span></div><div class="stat-info"><div class="stat-value">${profile.department||'—'}</div><div class="stat-label">Department</div></div></div>
+          </div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:16px;">Your Subjects</div>
+          ${subjects.length ? subjects.map(s=>`
+            <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+              <span class="icon icon-filled icon-lg" style="color:var(--primary-light)">library_books</span>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:600;">${s.name}</div>
+                <div style="font-size:12px;color:var(--text-muted)">${s.code} &middot; Sem ${s.semester||'N/A'} &middot; ${s.credits||3} Credits</div>
+              </div>
+              <a href="attendance.html" class="btn btn-secondary" style="font-size:12px;padding:8px 14px;">Mark Attendance</a>
+              <a href="marks.html" class="btn btn-primary" style="font-size:12px;padding:8px 14px;">Enter Marks</a>
+            </div>`).join('') : `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">No subjects assigned yet. Contact admin.</div>`}`;
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

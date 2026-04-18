@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Login</title>
+  <meta name="description" content="EduCore ERP — Smart College Management System." />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .login-wrapper { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 900px; min-height: 560px; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--glass-border); box-shadow: var(--shadow-lg); position: relative; z-index: 1; }
+    .login-brand { background: linear-gradient(145deg, #1E3A8A 0%, #1E40AF 40%, #0369A1 80%, #0E7490 100%); padding: 48px 40px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+    .login-brand::before { content: ''; position: absolute; width: 320px; height: 320px; background: radial-gradient(circle, rgba(96,165,250,0.3), transparent 70%); top: -120px; left: -80px; border-radius: 50%; }
+    .login-brand::after { content: ''; position: absolute; width: 220px; height: 220px; background: radial-gradient(circle, rgba(6,182,212,0.25), transparent 70%); bottom: -70px; right: -50px; border-radius: 50%; }
+    .brand-content { position: relative; z-index: 1; }
+    .brand-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 40px; }
+    .brand-logo-icon { width: 56px; height: 56px; background: rgba(255,255,255,0.15); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); }
+    .brand-logo-text { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: #fff; }
+    .brand-logo-sub { font-size: 11px; color: rgba(255,255,255,0.6); letter-spacing: 0.1em; }
+    .brand-headline { font-family: var(--font-display); font-size: 30px; font-weight: 700; line-height: 1.2; margin-bottom: 14px; color: #fff; }
+    .brand-desc { color: rgba(255,255,255,0.7); font-size: 14px; line-height: 1.7; margin-bottom: 32px; }
+    .brand-features { display: flex; flex-direction: column; gap: 10px; }
+    .brand-feature { display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(255,255,255,0.85); }
+    .feature-dot { width: 6px; height: 6px; border-radius: 50%; background: #60A5FA; flex-shrink: 0; }
+    .login-form-panel { background: var(--bg-surface); padding: 48px 40px; display: flex; flex-direction: column; justify-content: center; }
+    .login-title { font-family: var(--font-display); font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .login-subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 28px; }
+    .error-msg { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--danger); border-radius: var(--radius-md); padding: 12px 16px; font-size: 13px; margin-bottom: 16px; display: none; }
+    .error-msg.show { display: block; }
+    .forgot-link { font-size: 13px; color: var(--primary-light); text-decoration: none; float: right; margin-top: -14px; margin-bottom: 20px; }
+    .forgot-link:hover { text-decoration: underline; }
+    #login-btn { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
+    .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 700px) { .login-wrapper { grid-template-columns: 1fr; } .login-brand { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="login-wrapper">
+    <div class="login-brand">
+      <div class="brand-content">
+        <div class="brand-logo">
+          <div class="brand-logo-icon"><span class="icon icon-filled" style="font-size:28px;color:#fff;">school</span></div>
+          <div><div class="brand-logo-text">EduCore</div><div class="brand-logo-sub">ERP PLATFORM</div></div>
+        </div>
+        <h1 class="brand-headline">Smart College Management, Simplified.</h1>
+        <p class="brand-desc">One platform for students, faculty, and administrators. Manage attendance, marks, fees, and more — all in one place.</p>
+        <div class="brand-features">
+          <div class="brand-feature"><div class="feature-dot"></div> Real-time attendance and marks</div>
+          <div class="brand-feature"><div class="feature-dot"></div> Integrated fee management</div>
+          <div class="brand-feature"><div class="feature-dot"></div> Study material repository</div>
+          <div class="brand-feature"><div class="feature-dot"></div> Fault-tolerant modular design</div>
+        </div>
+      </div>
+    </div>
+    <div class="login-form-panel">
+      <div class="login-title" id="login-title">Welcome back!</div>
+      <div class="login-subtitle" id="login-subtitle">Sign in to your account</div>
+      <div class="error-msg" id="error-msg"></div>
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input class="form-control" type="email" id="email" placeholder="Enter your college email" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-control" type="password" id="password" placeholder="Enter your password" required />
+        </div>
+        <a href="#" class="forgot-link" onclick="handleForgotPassword()">Forgot password?</a>
+        <button type="submit" class="btn btn-primary" id="login-btn">
+          <div class="spinner" id="login-spinner"></div>
+          <span id="login-btn-text">Login</span>
+        </button>
+      </form>
+    </div>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { loginUser, getUserRole, auth, sendPasswordResetEmail } from './js/auth.js';
+    import { showToast } from './js/utils.js';
+    window.handleForgotPassword = async function() {
+      const email = document.getElementById('email').value.trim();
+      if (!email) { showToast('Enter your email first', 'warning'); return; }
+      try { await sendPasswordResetEmail(auth, email); showToast('Password reset email sent!', 'success'); } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+    };
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errEl = document.getElementById('error-msg');
+      const spinner = document.getElementById('login-spinner');
+      const btnText = document.getElementById('login-btn-text');
+      const btn = document.getElementById('login-btn');
+      errEl.classList.remove('show');
+      spinner.style.display = 'block'; btnText.textContent = 'Logging in...'; btn.disabled = true;
+      try {
+        const cred = await loginUser(email, password);
+        const role = await getUserRole(cred.user.uid);
+        if (!role) { throw { code: 'custom/no-role', message: 'No role assigned. Contact administrator.' }; }
+        showToast('Login successful! Redirecting...', 'success');
+        setTimeout(() => { 
+          const routes = { student: 'student/dashboard.html', faculty: 'faculty/dashboard.html', admin: 'admin/dashboard.html' }; 
+          window.location.href = routes[role] || 'index.html'; 
+        }, 800);
+      } catch (err) {
+        const msgs = { 'auth/user-not-found': 'No account found with this email.', 'auth/wrong-password': 'Incorrect password.', 'auth/invalid-email': 'Please enter a valid email.', 'auth/too-many-requests': 'Too many attempts. Try again later.', 'auth/invalid-credential': 'Invalid email or password.' };
+        errEl.textContent = msgs[err.code] || 'Login failed: ' + err.message;
+        errEl.classList.add('show'); spinner.style.display = 'none'; btnText.textContent = 'Login'; btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

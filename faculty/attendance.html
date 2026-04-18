@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Mark Attendance</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .student-row { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 8px; gap: 16px; transition: var(--transition); }
+    .student-row:hover { border-color: var(--glass-border-hover); }
+    .student-usn { font-size: 12px; color: var(--text-muted); }
+    .att-toggle { display: flex; gap: 8px; margin-left: auto; }
+    .att-btn { padding: 7px 18px; border-radius: var(--radius-full); border: 1px solid var(--glass-border); background: none; color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: var(--transition); }
+    .att-btn.present { background: rgba(16,185,129,.15); border-color: var(--success); color: var(--success); }
+    .att-btn.absent { background: rgba(239,68,68,.15); border-color: var(--danger); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Mark Attendance</h1><div class="page-subtitle">Select subject and mark student attendance</div></div>
+      <div id="error-zone"></div>
+      <div class="card" style="max-width:680px;">
+        <div style="font-size:15px;font-weight:600;margin-bottom:16px;">Session Details</div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Subject</label><select class="form-control" id="subject-sel"><option value="">-- Select Subject --</option></select></div>
+          <div class="form-group"><label class="form-label">Date</label><input class="form-control" type="date" id="att-date" /></div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Semester Filter</label><input class="form-control" type="number" id="filter-sem" placeholder="e.g. 5" min="1" max="8" /></div>
+          <div class="form-group"><label class="form-label">Section Filter</label><input class="form-control" type="text" id="filter-sec" placeholder="e.g. A" maxlength="2" style="text-transform:uppercase;" /></div>
+        </div>
+        <button class="btn btn-secondary" onclick="loadStudents()" style="margin-bottom:0;">Load Students</button>
+      </div>
+      <div id="students-section" style="display:none;margin-top:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div style="font-size:16px;font-weight:700;" id="session-label">Students</div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" onclick="markAll('present')" style="font-size:13px;padding:8px 16px;">All Present</button>
+            <button class="btn btn-secondary" onclick="markAll('absent')" style="font-size:13px;padding:8px 16px;">All Absent</button>
+          </div>
+        </div>
+        <div id="student-list"></div>
+        <button class="btn btn-primary" id="save-btn" onclick="saveAttendance()" style="margin-top:20px;justify-content:center;width:100%;max-width:320px;">Save Attendance</button>
+      </div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, setDoc, doc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, showToast } from '../js/utils.js';
+    const NAV = [
+      { label: 'Faculty', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance', active: true },
+        { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
+        { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
+      ]}
+    ];
+    let faculty, subjects = [], students = [];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['faculty']);
+        faculty = user;
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        document.getElementById('att-date').value = new Date().toISOString().split('T')[0];
+        subjects = await safeAsync(async () => { const q=query(collection(db,'subjects'),where('facultyId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load subjects') || [];
+        const sel = document.getElementById('subject-sel');
+        subjects.forEach(s => { const o=document.createElement('option'); o.value=s.id; o.textContent=`${s.name} (${s.code})`; sel.appendChild(o); });
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    window.loadStudents = async function() {
+      const subId = document.getElementById('subject-sel').value;
+      const sem = document.getElementById('filter-sem').value;
+      const sec = document.getElementById('filter-sec').value.trim().toUpperCase();
+
+      if (!subId) { showToast('Please select a subject', 'warning'); return; }
+      if (!sem || !sec) { showToast('Please provide both Semester and Section filters', 'warning'); return; }
+
+      const sub = subjects.find(s=>s.id===subId);
+      const attDate = document.getElementById('att-date').value;
+      if (!attDate) { showToast('Please select a Date', 'warning'); return; }
+      
+      students = await safeAsync(async () => {
+        // We query only for 'student' role. Firestore requires a custom Composite Index for multi-field filtering. 
+        // To prevent '0 students' errors for the user, we pull all students and filter via Javascript.
+        const q = query(collection(db,'users'), where('role','==','student'));
+        const s = await getDocs(q);
+        const allStudents = s.docs.map(d=>({id:d.id,...d.data()}));
+        
+        return allStudents.filter(u => 
+          (u.department||'').toLowerCase().trim() === (sub.department||'').toLowerCase().trim() && 
+          parseInt(u.semester) === parseInt(sem) && 
+          (u.section||'').toUpperCase().trim() === sec
+        );
+      }, 'error-zone', 'Failed to load students') || [];
+
+      // Fetch pre-existing attendance for this exact date to allow "Editing"
+      let existingAtt = {};
+      let isLocked = false;
+      const attDocs = await safeAsync(async () => {
+         const aq = query(collection(db, 'attendance'), where('facultyId', '==', faculty.uid));
+         const asnap = await getDocs(aq);
+         return asnap.docs.map(d=>({id: d.id, ...d.data()}));
+      }, null, null) || [];
+      
+      attDocs.forEach(a => {
+         if(a.date === attDate && a.subjectCode === sub.code) {
+            // Auto-clean legacy duplicate records from earlier testing that lack the strict ID format
+            if (!a.id.startsWith('att_')) {
+               deleteDoc(doc(db, 'attendance', a.id)).catch(console.error);
+               return; // Skip this duplicate so it doesn't corrupt the UI state
+            }
+            
+            existingAtt[a.studentId] = a.status;
+            // Check 24 hour lock mechanism
+            if (a.markedAt) {
+               const markedTime = a.markedAt.toDate ? a.markedAt.toDate().getTime() : new Date(a.markedAt).getTime();
+               if ((Date.now() - markedTime) > 24 * 60 * 60 * 1000) isLocked = true;
+            }
+         }
+      });
+
+      if (isLocked) {
+         showToast('This attendance record is over 24 hours old and is locked.', 'warning');
+         const saveBtn = document.getElementById('save-btn');
+         saveBtn.disabled = true; saveBtn.textContent = 'Locked (Past 24h)';
+         saveBtn.style.background = 'var(--text-muted)';
+      } else {
+         const saveBtn = document.getElementById('save-btn');
+         saveBtn.disabled = false; saveBtn.textContent = 'Save Attendance';
+         saveBtn.style.background = 'var(--primary)';
+      }
+
+      document.getElementById('session-label').textContent = `${sub.name} (Sem ${sem} Sec ${sec}) — ${students.length} Students`;
+      if(!students.length) { document.getElementById('student-list').innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-muted)">No students found for this semester and section.</div>`; } else {
+      document.getElementById('student-list').innerHTML = students.map(s=>{
+        const pre = existingAtt[s.id] || null;
+        return `
+        <div class="student-row" id="row-${s.id}" style="${isLocked ? 'opacity:0.6;pointer-events:none;' : ''}">
+          <div class="user-avatar" style="width:36px;height:36px;font-size:13px;">${(s.name||'?').slice(0,2).toUpperCase()}</div>
+          <div><div style="font-size:14px;font-weight:600;">${s.name||'Unknown'}</div><div class="student-usn" style="font-family:var(--font-display);font-weight:600;">${s.usn||s.prn||s.email}</div></div>
+          <div class="att-toggle">
+            <button class="att-btn ${pre==='present'?'present':''}" id="p-${s.id}" onclick="setAtt('${s.id}','present')" ${isLocked?'disabled':''}>Present</button>
+            <button class="att-btn ${pre==='absent'?'absent':''}" id="a-${s.id}" onclick="setAtt('${s.id}','absent')" ${isLocked?'disabled':''}>Absent</button>
+          </div>
+        </div>`;
+      }).join('');
+      }
+      document.getElementById('students-section').style.display = 'block';
+    };
+    window.setAtt = function(uid, status) {
+      document.getElementById(`p-${uid}`).className = `att-btn${status==='present'?' present':''}`;
+      document.getElementById(`a-${uid}`).className = `att-btn${status==='absent'?' absent':''}`;
+    };
+    window.markAll = function(status) { students.forEach(s=>setAtt(s.id,status)); };
+    window.saveAttendance = async function() {
+      const subId = document.getElementById('subject-sel').value;
+      const date = document.getElementById('att-date').value;
+      const sub = subjects.find(s=>s.id===subId);
+      const btn = document.getElementById('save-btn'); btn.disabled=true; btn.textContent='Saving...';
+      try {
+        const promises = students.map(s => {
+          const pBtn = document.getElementById(`p-${s.id}`);
+          let status = 'absent'; // default if unclicked
+          if(pBtn.classList.contains('present')) status = 'present';
+          
+          // Unique composite key ensures NO duplicates are ever made
+          const customId = `att_${s.id}_${sub.code}_${date}`;
+          
+          return setDoc(doc(db, 'attendance', customId), {
+            studentId:s.id, studentName:s.name, 
+            subjectCode:sub.code, subjectName:sub.name, 
+            facultyId:faculty.uid, date, status, 
+            markedAt:serverTimestamp()
+          }, { merge: true });
+        });
+        await Promise.all(promises);
+        showToast(`Attendance saved for ${students.length} students`, 'success');
+        document.getElementById('students-section').style.display='none';
+      } catch(e) { showToast('Failed to save: ' + e.message, 'error'); }
+      finally { btn.disabled=false; btn.textContent='Save Attendance'; }
+    };
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>
