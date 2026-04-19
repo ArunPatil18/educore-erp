@@ -38,7 +38,6 @@
   </div>
   <div id="toast-container"></div>
   <script type="module">
-    alert("DASHBOARD SCRIPT DETECTED");
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
@@ -65,8 +64,7 @@
         await loadDashboard(user.uid, profile);
         initMessaging(user.uid);
       } catch (e) { 
-        console.error("DEBUG: Dashboard Init Failed:", e);
-        // window.location.href = '../index.html'; 
+        window.location.href = '../index.html'; 
       }
     }
     async function loadDashboard(uid, profile) {
