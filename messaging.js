@@ -6,6 +6,7 @@ import { showToast } from './utils.js';
 const VAPID_KEY = "BAI4O5MyJpT66bDYcrA0Q244wT4IN1dnf6H5sy-czjNNLLn5Nhyf59i9MTKs18Y9-1VzXgqAXOmeKKAzEH5xodQ";
 
 export async function initMessaging(uid) {
+  alert("ALARM: initMessaging is calling for UID: " + uid);
   console.log(">>> initMessaging TRIGGERED for UID:", uid);
   if (!('Notification' in window)) {
     console.log('This browser does not support notifications.');
