@@ -1,0 +1,14 @@
+# Firebase Service Account - NEVER commit this to GitHub!
+*firebase-adminsdk*.json
+*.json.key
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db

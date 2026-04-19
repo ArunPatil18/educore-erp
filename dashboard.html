@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Faculty Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Faculty Dashboard</h1><div class="page-subtitle">Manage attendance, marks, and study materials</div></div>
+      <div id="error-zone"></div>
+      <div id="content"><div style="display:flex;align-items:center;justify-content:center;height:40vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, showToast } from '../js/utils.js';
+    import { initMessaging } from '../js/messaging.js';
+    const NAV = [
+      { label: 'Faculty', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard', active: true },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
+        { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
+      ]},
+      { label: 'Communication', items: [
+        { href: '../student/announcements.html', icon: 'campaign', text: 'Announcements' },
+      ]}
+    ];
+    async function init() {
+      try {
+        const { user } = await requireAuth(['faculty']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        initMessaging(user.uid);
+        const subjects = await safeAsync(async () => { const q=query(collection(db,'subjects'),where('facultyId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load subjects') || [];
+        document.getElementById('content').innerHTML = `
+          <div class="stats-grid" style="margin-bottom:28px;">
+            <div class="stat-card purple"><div class="stat-icon purple"><span class="icon icon-filled icon-xl">library_books</span></div><div class="stat-info"><div class="stat-value">${subjects.length}</div><div class="stat-label">Assigned Subjects</div></div></div>
+            <div class="stat-card cyan"><div class="stat-icon cyan"><span class="icon icon-filled icon-xl">group</span></div><div class="stat-info"><div class="stat-value">${profile.department||'—'}</div><div class="stat-label">Department</div></div></div>
+          </div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:16px;">Your Subjects</div>
+          ${subjects.length ? subjects.map(s=>`
+            <div class="card" style="margin-bottom:12px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+              <span class="icon icon-filled icon-lg" style="color:var(--primary-light)">library_books</span>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:600;">${s.name}</div>
+                <div style="font-size:12px;color:var(--text-muted)">${s.code} &middot; Sem ${s.semester||'N/A'} &middot; ${s.credits||3} Credits</div>
+              </div>
+              <a href="attendance.html" class="btn btn-secondary" style="font-size:12px;padding:8px 14px;">Mark Attendance</a>
+              <a href="marks.html" class="btn btn-primary" style="font-size:12px;padding:8px 14px;">Enter Marks</a>
+            </div>`).join('') : `<div class="card" style="text-align:center;padding:36px;color:var(--text-muted)">No subjects assigned yet. Contact admin.</div>`}
+          
+          <div class="card" style="margin-top:32px;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:20px;">Post an Announcement</div>
+            <form id="ann-form">
+              <div class="form-group"><label class="form-label">Title</label><input class="form-control" id="ann-title" placeholder="e.g. End Semester Exams" required /></div>
+              <div class="form-group"><label class="form-label">Message</label><textarea class="form-control" id="ann-body" rows="3" placeholder="Important details..." required style="resize:vertical;"></textarea></div>
+              <div class="grid-2">
+                <div class="form-group"><label class="form-label">Priority</label><select class="form-control" id="ann-priority"><option value="Info">Info</option><option value="Urgent">Urgent</option><option value="Event">Event</option></select></div>
+                <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="ann-dept" value="${profile.department || 'All'}" readonly style="background:var(--bg-document);color:var(--text-muted);cursor:not-allowed;" /></div>
+              </div>
+              <button type="submit" class="btn btn-primary" id="ann-btn" style="justify-content:center;width:100%;">Create Announcement & Notify Students</button>
+            </form>
+          </div>
+        `;
+        
+        // Add listener for the new Announcement form
+        document.getElementById('ann-form')?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const btn = document.getElementById('ann-btn');
+          btn.disabled = true; btn.textContent = 'Posting & Notifying...';
+          
+          const title = document.getElementById('ann-title').value.trim();
+          const body = document.getElementById('ann-body').value.trim();
+          
+          try {
+            // 1. Save to Database
+            await addDoc(collection(db, 'announcements'), {
+              title: title,
+              body: body,
+              priority: document.getElementById('ann-priority').value,
+              department: document.getElementById('ann-dept').value,
+              author: profile.name || user.email,
+              createdAt: serverTimestamp()
+            });
+
+            // 2. Trigger the Vercel Push Notification API automatically!
+            fetch('/api/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ title: 'New Alert: ' + title, body: body })
+            }).catch(console.error);
+
+            showToast('Announcement posted & Notifications pushed!', 'success');
+            e.target.reset();
+          } catch(err) {
+            showToast('Failed to post: ' + err.message, 'error');
+          } finally {
+            btn.disabled = false; btn.textContent = 'Create Announcement & Notify Students';
+          }
+        });
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>
