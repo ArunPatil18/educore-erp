@@ -38,10 +38,12 @@
   </div>
   <div id="toast-container"></div>
   <script type="module">
+    alert("DASHBOARD SCRIPT DETECTED");
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { showToast, buildSidebar, formatDate, safeAsync } from '../js/utils.js';
+    import { initMessaging } from '../js/messaging.js';
     const NAV = [
       { label: 'Main', items: [
         { href: 'dashboard.html', icon: 'home', text: 'Dashboard', active: true },
@@ -61,7 +63,11 @@
         document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
         await loadDashboard(user.uid, profile);
-      } catch (e) { window.location.href = '../index.html'; }
+        initMessaging(user.uid);
+      } catch (e) { 
+        console.error("DEBUG: Dashboard Init Failed:", e);
+        // window.location.href = '../index.html'; 
+      }
     }
     async function loadDashboard(uid, profile) {
       const attData = await safeAsync(() => fetchAtt(uid), null, null);
