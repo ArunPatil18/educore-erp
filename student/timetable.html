@@ -73,59 +73,74 @@
         return;
       }
 
-      document.getElementById('tt-subtitle').textContent = `${department} — Semester ${semester}${section ? ' (Sec ' + section + ')' : ''}`;
-
-      // 1. Try fetching manual timetable (Universal Matcher for Legacy & Standard Data)
       const rawDept = (department || '').trim();
       const rawSem = parseInt(semester) || 0;
       const rawSec = (section || 'A').trim();
       
-      // Normalize Section (e.g., 'Section A' -> 'A')
-      const normSec = rawSec.includes('A') ? 'A' : rawSec.includes('B') ? 'B' : rawSec.includes('C') ? 'C' : rawSec.includes('D') ? 'D' : rawSec;
-      
-      // Normalize Department (e.g., 'Computer Science' -> 'CS')
-      const normDept = rawDept;
-      const altDept = (normDept === 'Computer Science') ? 'CS' : 
-                      (normDept === 'Mechanical') ? 'Mech' : 
-                      (normDept === 'Electrical') ? 'EE' : 
-                      (normDept === 'Civil') ? 'Civil' : normDept;
+      document.getElementById('tt-subtitle').textContent = `${rawDept} — Semester ${rawSem}${rawSec ? ' (Sec ' + rawSec + ')' : ''}`;
 
-      // Try multiple ID patterns to guarantee a match
-      const mttId = `${normDept}_${rawSem}_${normSec}`;
-      const altId = `${altDept}_${rawSem}_${normSec}`;
-      
-      let mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', mttId)), null, null);
-      if(!mttSnap || !mttSnap.exists()) {
-        mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', altId)), null, null);
-      }
-      
-      if(mttSnap && mttSnap.exists()) {
-        renderManualTT(mttSnap.data());
-      } else {
-        console.warn("Searching IDs:", [mttId, altId]);
-        
-        // 2. Fallback to uploaded file link (Now also using Normalized strings)
-        const ttQuery = query(
-           collection(db, 'timetables'), 
-           where('department', '==', normDept), 
-           where('semester', '==', normSem), 
-           where('section', '==', normSec)
-        );
-        
-        const ttSnap = await getDocs(ttQuery);
-        if(!ttSnap.empty) {
-          renderFileTT(ttSnap.docs[0].data());
-        } else {
-          renderError(`No timetable found for your class.<br><br>
-            <div style="font-size:12px; background:rgba(0,0,0,0.05); padding:12px; border-radius:8px; display:inline-block; text-align:left;">
-               <strong>Diagnostic Info:</strong><br>
-               • Dept: "${normDept}"<br>
-               • Sem: "${normSem}"<br>
-               • Sec: "${normSec}"<br>
-               • Search ID: <code>${mttId}</code>
-            </div><br><br>
-            Please ask Admin to verify these exact values match in your profile.`);
-        }
+      try {
+         // Normalize Section (e.g., 'Section A' -> 'A')
+         const normSec = rawSec.includes('A') ? 'A' : rawSec.includes('B') ? 'B' : rawSec.includes('C') ? 'C' : rawSec.includes('D') ? 'D' : rawSec;
+         
+         // Normalize Department (Case-Insensitive Matcher)
+         const deptUpper = rawDept.toUpperCase();
+         const normDept = rawDept; 
+         const altDept = (deptUpper.includes('COMPUTER') || deptUpper === 'CS') ? 'Computer Science' : 
+                         (deptUpper.includes('MECH') || deptUpper === 'ME') ? 'Mechanical' : 
+                         (deptUpper.includes('ELECTRICAL') || deptUpper === 'EE') ? 'Electrical' : 
+                         (deptUpper.includes('CIVIL') || deptUpper === 'CE') ? 'Civil' : rawDept;
+
+         // Try multiple ID patterns to guarantee a match
+         // Pattern 1: Exactly as stored in profile
+         // Pattern 2: Standardized full name
+         // Pattern 3: Legacy Abbreviation
+         const ids = [
+            `${rawDept}_${rawSem}_${normSec}`,
+            `${altDept}_${rawSem}_${normSec}`,
+            `${(altDept === 'Computer Science' ? 'CS' : altDept === 'Mechanical' ? 'Mech' : altDept === 'Electrical' ? 'EE' : altDept === 'Civil' ? 'Civil' : altDept)}_${rawSem}_${normSec}`
+         ];
+         
+         const uniqueIds = [...new Set(ids)];
+         let mttSnap = null;
+         
+         for (const id of uniqueIds) {
+            const snap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', id)), null, null);
+            if(snap && snap.exists()) {
+               mttSnap = snap;
+               break;
+            }
+         }
+         
+         if(mttSnap) {
+           renderManualTT(mttSnap.data());
+         } else {
+           // 2. Fallback to uploaded file link (Now also using Normalized strings)
+           const ttQuery = query(
+              collection(db, 'timetables'), 
+              where('department', '==', rawDept), 
+              where('semester', '==', rawSem), 
+              where('section', '==', normSec)
+           );
+           
+           const ttSnap = await safeAsync(() => getDocs(ttQuery), null, null);
+           if(ttSnap && !ttSnap.empty) {
+             renderFileTT(ttSnap.docs[0].data());
+           } else {
+             renderError(`No timetable found for your class.<br><br>
+               <div style="font-size:12px; background:rgba(0,0,0,0.05); padding:12px; border-radius:8px; display:inline-block; text-align:left; color:var(--text-secondary);">
+                  <strong>Diagnostic Info:</strong><br>
+                  • Dept: "${rawDept}"<br>
+                  • Sem: "${rawSem}"<br>
+                  • Sec: "${normSec}"<br>
+                  • Searched IDs: <code>${uniqueIds.join(', ')}</code>
+               </div><br><br>
+               Please ask Admin to verify if these values match exactly in the "Time Table" tab.`);
+           }
+         }
+      } catch (err) {
+         console.error("Timetable Load Error:", err);
+         renderError(`A system error occurred while loading your timetable.<br><small>${err.message}</small>`);
       }
     }
 
