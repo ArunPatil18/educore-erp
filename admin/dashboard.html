@@ -91,27 +91,83 @@
 
       <!-- Time Table Tab -->
       <div class="tab-content" id="tab-timetable">
-        <div class="card" style="max-width:640px;margin-bottom:24px;">
-          <div style="font-size:15px;font-weight:700;margin-bottom:20px;">Upload Class Time Table</div>
-          <form id="tt-form">
-            <div class="grid-2">
-              <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="tt-dept" placeholder="e.g. Computer Science" required /></div>
-              <div class="form-group"><label class="form-label">Semester</label><input class="form-control" id="tt-sem" type="number" min="1" max="8" placeholder="e.g. 5" required /></div>
-            </div>
-            <div class="grid-2">
-              <div class="form-group"><label class="form-label">Section</label>
-                <select class="form-control" id="tt-sec" required>
-                  <option value="A">Section A</option><option value="B">Section B</option><option value="C">Section C</option><option value="D">Section D</option>
-                </select>
-              </div>
-              <div class="form-group"><label class="form-label">Time Table File URL (Image/PDF)</label><input class="form-control" id="tt-url" placeholder="https://example.com/timetable.jpg" required /></div>
-            </div>
-            <button type="submit" class="btn btn-primary" id="tt-btn" style="justify-content:center;">Upload Time Table</button>
-          </form>
+        <div style="display:flex;gap:8px;margin-bottom:20px;">
+          <button class="sub-tab active" id="sub-tt-upload" onclick="showTTTab('upload')">File Upload</button>
+          <button class="sub-tab" id="sub-tt-manual" onclick="showTTTab('manual')">AI Manual Creator</button>
         </div>
-        <div class="table-wrapper">
-          <div class="table-header"><div class="table-title">Active Time Tables</div></div>
-          <div id="tt-list"><div style="color:var(--text-muted);font-size:14px;padding:16px">Loading time tables...</div></div>
+
+        <div id="pane-tt-upload">
+          <div class="card" style="max-width:640px;margin-bottom:24px;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:20px;">Upload Class Time Table (Link)</div>
+            <form id="tt-form">
+              <div class="grid-2">
+                <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="tt-dept" placeholder="e.g. Computer Science" required /></div>
+                <div class="form-group"><label class="form-label">Semester</label><input class="form-control" id="tt-sem" type="number" min="1" max="8" placeholder="e.g. 5" required /></div>
+              </div>
+              <div class="grid-2">
+                <div class="form-group"><label class="form-label">Section</label>
+                  <select class="form-control" id="tt-sec" required>
+                    <option value="A">Section A</option><option value="B">Section B</option><option value="C">Section C</option><option value="D">Section D</option>
+                  </select>
+                </div>
+                <div class="form-group"><label class="form-label">Time Table File URL (Image/PDF)</label><input class="form-control" id="tt-url" placeholder="https://example.com/timetable.jpg" required /></div>
+              </div>
+              <button type="submit" class="btn btn-primary" id="tt-btn" style="justify-content:center;">Upload Time Table</button>
+            </form>
+          </div>
+          <div class="table-wrapper">
+            <div class="table-header"><div class="table-title">Active Time Tables (Uploaded)</div></div>
+            <div id="tt-list"><div style="color:var(--text-muted);font-size:14px;padding:16px">Loading time tables...</div></div>
+          </div>
+        </div>
+
+        <div id="pane-tt-manual" style="display:none;">
+          <div class="card" style="margin-bottom:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <div style="font-size:15px;font-weight:700;">AI Timetable Generator & Manual Editor</div>
+              <div style="display:flex;gap:10px;">
+                 <button class="btn btn-secondary" onclick="generateAITimetable()" style="font-size:12px;"><span class="icon icon-sm">psychology</span> Generate with AI</button>
+                 <button class="btn btn-primary" onclick="saveManualTimetable()" id="save-tt-btn" style="font-size:12px;"><span class="icon icon-sm">save</span> Save Changes</button>
+              </div>
+            </div>
+
+            <div class="grid-4" style="gap:12px;margin-bottom:24px;background:rgba(255,255,255,0.03);padding:16px;border-radius:var(--radius-md);border:1px solid var(--glass-border);">
+               <div class="form-group" style="margin:0;"><label class="form-label">Dept</label>
+                 <select class="form-control" id="mtt-dept" onchange="loadManualPreview()">
+                    <option value="Computer Science">Computer Science</option><option value="Mechanical">Mechanical</option><option value="Civil">Civil</option><option value="Electrical">Electrical</option>
+                 </select>
+               </div>
+               <div class="form-group" style="margin:0;"><label class="form-label">Sem</label>
+                 <select class="form-control" id="mtt-sem" onchange="loadManualPreview()">
+                    <option value="1">Sem 1</option><option value="2">Sem 2</option><option value="3">Sem 3</option><option value="4">Sem 4</option>
+                    <option value="5">Sem 5</option><option value="6">Sem 6</option><option value="7">Sem 7</option><option value="8">Sem 8</option>
+                 </select>
+               </div>
+               <div class="form-group" style="margin:0;"><label class="form-label">Sec</label>
+                 <select class="form-control" id="mtt-sec" onchange="loadManualPreview()">
+                    <option value="A">Sec A</option><option value="B">Sec B</option><option value="C">Sec C</option><option value="D">Sec D</option>
+                 </select>
+               </div>
+               <div class="form-group" style="margin:0;display:flex;align-items:flex-end;">
+                 <button class="btn btn-secondary" onclick="loadManualPreview()" style="width:100%;"><span class="icon icon-sm">refresh</span> Load Existing</button>
+               </div>
+            </div>
+
+            <div class="table-wrapper" style="overflow-x:auto;">
+               <table class="data-table" id="mtt-grid" style="min-width:800px;">
+                 <thead>
+                   <tr>
+                     <th style="width:100px;">Day / Time</th>
+                     <th>09:00 - 10:00</th><th>10:00 - 11:00</th><th>11:00 - 12:00</th>
+                     <th>12:00 - 01:00</th><th>01:00 - 02:00</th><th>02:00 - 03:00</th>
+                   </tr>
+                 </thead>
+                 <tbody id="mtt-body">
+                   <!-- Population via JS -->
+                 </tbody>
+               </table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -283,7 +339,7 @@
     import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { buildSidebar, safeAsync, showToast, formatDateTime } from '../js/utils.js';
+    import { buildSidebar, safeAsync, showToast, formatDateTime, getSubjectColor, getSubjectBorder } from '../js/utils.js';
 
     // Secondary Firebase app — so creating users does NOT log out the admin
     const secondaryApp = initializeApp({
@@ -333,6 +389,14 @@
         document.getElementById('sub-'+t).classList.toggle('active', t===tab);
         document.getElementById('pane-'+t).style.display = t===tab ? 'block' : 'none';
       });
+    };
+
+    window.showTTTab = function(tab) {
+      ['upload','manual'].forEach(t => {
+        document.getElementById('sub-tt-'+t).classList.toggle('active', t===tab);
+        document.getElementById('pane-tt-'+t).style.display = t===tab ? 'block' : 'none';
+      });
+      if(tab==='manual') loadManualPreview();
     };
 
     async function loadUsers() {
@@ -637,6 +701,132 @@
        if(!confirm('Permanently delete this time table?')) return;
        try { await deleteDoc(doc(db,'timetables',id)); showToast('Time table deleted','success'); await loadTimetablesAdmin(); }
        catch(e) { showToast('Error: '+e.message,'error'); }
+    };
+
+    const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const SLOTS = ['09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00', '12:00 - 01:00', '01:00 - 02:00', '02:00 - 03:00'];
+    
+    window.loadManualPreview = async function() {
+       const dept = document.getElementById('mtt-dept').value;
+       const sem = parseInt(document.getElementById('mtt-sem').value);
+       const sec = document.getElementById('mtt-sec').value;
+       const tbody = document.getElementById('mtt-body');
+       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;">Loading subjects and schedule...</td></tr>';
+
+       // 1. Fetch subjects assigned to this Dept/Sem
+       const subQuery = query(collection(db, 'subjects'), where('department', '==', dept), where('semester', '==', sem));
+       const subSnap = await getDocs(subQuery);
+       const availableSubjects = subSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+       // 2. Fetch existing manual timetable if any
+       const docId = `${dept}_${sem}_${sec}`;
+       const ttSnap = await safeAsync(() => getDocs(query(collection(db, 'manual_timetables'), where('__name__', '==', docId))), null, null);
+       const existingData = (ttSnap && !ttSnap.empty) ? ttSnap.docs[0].data() : null;
+
+       // 3. Build the Grid
+       tbody.innerHTML = '';
+       DAYS.forEach(day => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td style="font-weight:700; color:var(--primary-light); background:rgba(37,99,235,0.05);">${day}</td>`;
+          SLOTS.forEach((slot, idx) => {
+             const existingSlot = existingData?.slots?.find(s => s.day === day && s.time === slot);
+             const td = document.createElement('td');
+             td.style.padding = '8px';
+             td.style.transition = 'var(--transition)';
+
+             const subCode = existingSlot?.subjectCode || '';
+             const bgColor = getSubjectColor(subCode);
+             const borderColor = getSubjectBorder(subCode);
+             
+             td.style.background = bgColor;
+             td.style.borderColor = borderColor;
+             
+             let options = `<option value="">-- Break --</option>`;
+             availableSubjects.forEach(s => {
+                const val = `${s.code}|${s.name}|${s.facultyId}`;
+                const selected = existingSlot && (existingSlot.subjectCode === s.code) ? 'selected' : '';
+                options += `<option value="${val}" ${selected}>${s.code} - ${s.name}</option>`;
+             });
+
+             td.innerHTML = `<select class="form-control mtt-slot-select" data-day="${day}" data-time="${slot}" onchange="this.parentElement.style.background=getSubjectColor(this.value.split('|')[0]); this.parentElement.style.borderColor=getSubjectBorder(this.value.split('|')[0]);" style="font-size:11px; padding:6px; height:auto; border-radius:4px; min-width:110px; background:transparent; border-color:transparent;">${options}</select>`;
+             tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+       });
+    };
+
+    window.generateAITimetable = async function() {
+       const dept = document.getElementById('mtt-dept').value;
+       const sem = parseInt(document.getElementById('mtt-sem').value);
+       
+       showToast('AI is calculating optimal distribution...', 'info');
+       
+       // Fetch subjects
+       const subSnap = await getDocs(query(collection(db, 'subjects'), where('department', '==', dept), where('semester', '==', sem)));
+       const subjects = subSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+       
+       if(!subjects.length) { showToast('No subjects assigned to this Dept/Sem in Academics tab!', 'error'); return; }
+
+       const selects = document.querySelectorAll('.mtt-slot-select');
+       let subIndex = 0;
+       
+       // Shuffle subjects for randomness
+       const shuffled = [...subjects].sort(() => Math.random() - 0.5);
+
+       selects.forEach((sel, i) => {
+          // Logic: 6 slots per day. Let's fill them sequentially but skip some for breaks.
+          // We also want to ensure we don't put more than 2 slots of same subject per day.
+          const day = sel.dataset.day;
+          
+          // Simple AI logic: round robin through subjects, 4 classes per day, 2 breaks
+          const slotNum = i % 6; 
+          if(slotNum === 3 || slotNum === 5) { // 4th and 6th slots as potential breaks
+             sel.value = ""; 
+          } else {
+             const sub = shuffled[subIndex % shuffled.length];
+             sel.value = `${sub.code}|${sub.name}|${sub.facultyId}`;
+             subIndex++;
+          }
+       });
+       showToast('Timetable generated! Review and Save.', 'success');
+    };
+
+    window.saveManualTimetable = async function() {
+       const dept = document.getElementById('mtt-dept').value;
+       const sem = parseInt(document.getElementById('mtt-sem').value);
+       const sec = document.getElementById('mtt-sec').value;
+       const btn = document.getElementById('save-tt-btn');
+       btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;margin-right:8px;"></span> Saving...';
+
+       try {
+          const slots = [];
+          document.querySelectorAll('.mtt-slot-select').forEach(sel => {
+             if(!sel.value) return;
+             const [code, name, facId] = sel.value.split('|');
+             slots.push({
+                day: sel.dataset.day,
+                time: sel.dataset.time,
+                subjectCode: code,
+                subjectName: name,
+                facultyId: facId
+             });
+          });
+
+          const docId = `${dept}_${sem}_${sec}`;
+          await setDoc(doc(db, 'manual_timetables', docId), {
+             department: dept,
+             semester: sem,
+             section: sec,
+             slots: slots,
+             updatedAt: serverTimestamp()
+          });
+
+          showToast('Manual Timetable saved successfully!', 'success');
+       } catch(err) {
+          showToast('Save failed: ' + err.message, 'error');
+       } finally {
+          btn.disabled = false; btn.innerHTML = '<span class="icon icon-sm">save</span> Save Changes';
+       }
     };
 
     window.createUser=async function(){
