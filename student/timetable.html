@@ -75,16 +75,37 @@
 
       document.getElementById('tt-subtitle').textContent = `${department} — Semester ${semester}${section ? ' (Sec ' + section + ')' : ''}`;
 
-      // 1. Try fetching manual timetable (Normalizing strings to handle legacy space issues)
-      const normDept = (department || '').trim();
-      const normSem = parseInt(semester) || 0;
-      const normSec = (section || 'A').trim();
-      const mttId = `${normDept}_${normSem}_${normSec}`;
-      const mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', mttId)), null, null);
+      // 1. Try fetching manual timetable (Universal Matcher for Legacy & Standard Data)
+      const rawDept = (department || '').trim();
+      const rawSem = parseInt(semester) || 0;
+      const rawSec = (section || 'A').trim();
+      
+      // Normalize Section (e.g., 'Section A' -> 'A')
+      const normSec = rawSec.includes('A') ? 'A' : rawSec.includes('B') ? 'B' : rawSec.includes('C') ? 'C' : rawSec.includes('D') ? 'D' : rawSec;
+      
+      // Normalize Department (e.g., 'Computer Science' -> 'CS')
+      const normDept = rawDept;
+      const altDept = (normDept === 'Computer Science') ? 'CS' : 
+                      (normDept === 'Mechanical') ? 'Mech' : 
+                      (normDept === 'Electrical') ? 'EE' : 
+                      (normDept === 'Civil') ? 'Civil' : normDept;
+
+      // Try multiple ID patterns to guarantee a match
+      const mttId = `${normDept}_${rawSem}_${normSec}`;
+      const altId = `${altDept}_${rawSem}_${normSec}`;
+      
+      let mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', mttId)), null, null);
+      if(!mttSnap || !mttSnap.exists()) {
+        mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', altId)), null, null);
+      }
       
       if(mttSnap && mttSnap.exists()) {
         renderManualTT(mttSnap.data());
       } else {
+        console.warn("Searching IDs:", [mttId, altId]);
+        // 2. Fallback to uploaded file link
+        // Log mismatch for debugging
+        console.warn(`Timetable not found for ID: ${mttId}. Please ensure Admin saved it correctly.`);
         // 2. Fallback to uploaded file link
         const ttQuery = query(collection(db, 'timetables'), where('department', '==', department), where('semester', '==', semester), where('section', '==', section || 'A'));
         const ttSnap = await getDocs(ttQuery);
