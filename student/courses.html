@@ -33,27 +33,14 @@
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { showToast, buildSidebar, safeAsync } from '../js/utils.js';
+    import { showToast, buildSidebar, safeAsync, getStudentNav } from '../js/utils.js';
     
-    const NAV = [
-      { label: 'Main', items: [
-        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
-        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
-        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
-        { href: 'fees.html', icon: 'payments', text: 'Fees' },
-      ]},
-      { label: 'Resources', items: [
-        { href: 'courses.html', icon: 'menu_book', text: 'My Courses', active: true },
-        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' },
-        { href: 'timetable.html', icon: 'event_note', text: 'Time Table' }
-      ]}
-    ];
 
     async function init() {
       try {
         const { user } = await requireAuth(['student']);
         const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
-        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, getStudentNav('courses.html'));
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
         
         if(!profile.department || !profile.semester) {

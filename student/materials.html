@@ -33,19 +33,7 @@
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { buildSidebar, safeAsync, formatDate } from '../js/utils.js';
-    const NAV = [
-      { label: 'Main', items: [
-        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
-        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
-        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
-        { href: 'fees.html', icon: 'payments', text: 'Fees' },
-      ]},
-      { label: 'Resources', items: [
-        { href: 'courses.html', icon: 'menu_book', text: 'My Courses', active: true },
-        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' }
-      ]}
-    ];
+    import { buildSidebar, safeAsync, formatDate, getStudentNav } from '../js/utils.js';
     let allMats = [];
     function typeIcon(type) { const m={drive:'folder',pdf:'picture_as_pdf',ppt:'slideshow',doc:'description',other:'insert_drive_file'}; return m[type]||'insert_drive_file'; }
     window.filterMats = function() {
@@ -71,7 +59,7 @@
       try {
         const { user } = await requireAuth(['student']);
         const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
-        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, getStudentNav('materials.html'));
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
 
         if (!targetCode) {

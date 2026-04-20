@@ -31,19 +31,7 @@
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { buildSidebar, safeAsync } from '../js/utils.js';
-    const NAV = [
-      { label: 'Main', items: [
-        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
-        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
-        { href: 'marks.html', icon: 'grade', text: 'Marks & Results', active: true },
-        { href: 'fees.html', icon: 'payments', text: 'Fees' },
-      ]},
-      { label: 'Resources', items: [
-        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
-        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' }
-      ]}
-    ];
+    import { buildSidebar, safeAsync, getStudentNav } from '../js/utils.js';
     function getGrade(pct) {
       if (pct>=90) return {g:'O',c:'badge-success'}; if (pct>=80) return {g:'A+',c:'badge-success'};
       if (pct>=70) return {g:'A',c:'badge-info'}; if (pct>=60) return {g:'B+',c:'badge-info'};
@@ -54,7 +42,7 @@
       try {
         const { user } = await requireAuth(['student']);
         const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
-        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, getStudentNav('marks.html'));
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
         const data = await safeAsync(async () => { const q=query(collection(db,'marks'),where('studentId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load marks') || [];
         if (!data.length) { document.getElementById('content').innerHTML = `<div class="card" style="text-align:center;padding:48px;color:var(--text-muted)">No marks records found yet.</div>`; return; }
