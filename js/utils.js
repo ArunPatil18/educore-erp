@@ -53,6 +53,34 @@ export function formatCurrency(amount) {
   return 'Rs.' + Number(amount).toLocaleString('en-IN');
 }
 
+// ── Subject Coloring ──
+export function getSubjectColor(code) {
+  if (!code) return 'var(--text-muted)';
+  const colors = [
+    'rgba(37,99,235,0.15)', // Blue
+    'rgba(16,185,129,0.15)', // Green
+    'rgba(245,158,11,0.15)', // Amber
+    'rgba(239,68,68,0.15)',  // Red
+    'rgba(139,92,246,0.15)', // Purple
+    'rgba(236,72,153,0.15)', // Pink
+    'rgba(6,182,212,0.15)'   // Cyan
+  ];
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+export function getSubjectBorder(code) {
+  if (!code) return 'var(--glass-border)';
+  const colors = [
+    'rgba(37,99,235,0.4)', 'rgba(16,185,129,0.4)', 'rgba(245,158,11,0.4)',
+    'rgba(239,68,68,0.4)', 'rgba(139,92,246,0.4)', 'rgba(236,72,153,0.4)', 'rgba(6,182,212,0.4)'
+  ];
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) hash = code.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
 // ── Safe async wrapper ──
 export async function safeAsync(fn, errorContainerId, errorMsg) {
   try { return await fn(); } catch (e) {
