@@ -55,6 +55,7 @@
     const NAV = [
       { label: 'Faculty', items: [
         { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'timetable.html', icon: 'calendar_today', text: 'My Schedule' },
         { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance', active: true },
         { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
         { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
@@ -72,6 +73,48 @@
         subjects = await safeAsync(async () => { const q=query(collection(db,'subjects'),where('facultyId','==',user.uid)); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Failed to load subjects') || [];
         const sel = document.getElementById('subject-sel');
         subjects.forEach(s => { const o=document.createElement('option'); o.value=s.id; o.textContent=`${s.name} (${s.code})`; sel.appendChild(o); });
+        
+        // ── Smart Timetable Detection ──
+        try {
+           const now = new Date();
+           const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+           const currentMin = now.getHours() * 60 + now.getMinutes();
+
+           const ttSnap = await getDocs(collection(db, 'manual_timetables'));
+           const allTTs = ttSnap.docs.map(d => d.data());
+           
+           const getMinutes = (str) => {
+              let [h, m] = str.split(':').map(Number);
+              if (h >= 1 && h <= 8) h += 12;
+              return h * 60 + m;
+           };
+
+           let currentSlot = null;
+           allTTs.forEach(tt => {
+              tt.slots.forEach(slot => {
+                 if (slot.facultyId === user.uid && slot.day === currentDay) {
+                    const [startStr, endStr] = slot.time.split(' - ');
+                    const startMin = getMinutes(startStr);
+                    const endMin = getMinutes(endStr);
+                    if (currentMin >= startMin && currentMin < endMin) {
+                       currentSlot = { ...slot, sem: tt.semester, sec: tt.section };
+                    }
+                 }
+              });
+           });
+
+           if (currentSlot) {
+              const matchedSub = subjects.find(s => s.code === currentSlot.subjectCode);
+              if (matchedSub) {
+                 document.getElementById('subject-sel').value = matchedSub.id;
+                 document.getElementById('filter-sem').value = currentSlot.sem;
+                 document.getElementById('filter-sec').value = currentSlot.sec;
+                 showToast(`Smart detection: Pre-filled ${currentSlot.subjectCode} for Sem ${currentSlot.sem} ${currentSlot.sec}`, 'info');
+                 // Automatically load students for convenience
+                 setTimeout(() => loadStudents(), 800);
+              }
+           }
+        } catch(e) { console.warn("Smart detection failed", e); }
       } catch(e) { window.location.href = '../index.html'; }
     }
     window.loadStudents = async function() {
