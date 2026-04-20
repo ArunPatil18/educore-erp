@@ -39,24 +39,15 @@
   <div id="toast-container"></div>
   <script type="module">
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
-    import { buildSidebar, safeAsync } from '../js/utils.js';
+    import { buildSidebar, safeAsync, getFacultyNav } from '../js/utils.js';
 
-    const NAV = [
-      { label: 'Faculty', items: [
-        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
-        { href: 'timetable.html', icon: 'calendar_today', text: 'My Schedule' },
-        { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
-        { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
-        { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
-      ]}
-    ];
 
     async function init() {
       try {
         const { user } = await requireAuth(['faculty']);
         const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
         
-        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, NAV);
+        document.getElementById('sidebar').innerHTML = buildSidebar('Faculty', profile.name || user.email, getFacultyNav('profile.html'));
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
 
         document.getElementById('content').innerHTML = `
