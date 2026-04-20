@@ -131,12 +131,15 @@
           
           // Check if slot is active
           const [startStr, endStr] = slot.split(' - ');
-          const [sH, sM] = startStr.split(':').map(Number);
-          const [eH, eM] = endStr.split(':').map(Number);
-          const startMin = sH * 60 + sM + (startStr.includes('PM') && sH !== 12 ? 720 : 0);
-          const endMin = eH * 60 + eM + (endStr.split(' ')[1] === 'PM' && eH !== 12 ? 720 : 0);
-          // Adjust for 24h format if needed, but the slots are 09:00 - 03:00 (likely 9am-3pm)
-          const active = isToday && (currentTime >= (sH*60+sM) && currentTime < (eH*60+eM));
+          const getMinutes = (str) => {
+             let [h, m] = str.split(':').map(Number);
+             // Simple logic: if hour is 1-8, it's likely PM (college hours)
+             if (h >= 1 && h <= 8) h += 12;
+             return h * 60 + m;
+          };
+          const startMin = getMinutes(startStr);
+          const endMin = getMinutes(endStr);
+          const active = isToday && (currentTime >= startMin && currentTime < endMin);
 
           if(entry) {
             const bgColor = getSubjectColor(entry.subjectCode);
