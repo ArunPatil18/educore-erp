@@ -90,6 +90,46 @@ export async function safeAsync(fn, errorContainerId, errorMsg) {
   }
 }
 
+// ── Master Navigation Lists ──
+export function getStudentNav(activeHref) {
+  const nav = [
+    { label: 'Main', items: [
+      { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+      { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
+      { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
+      { href: 'fees.html', icon: 'payments', text: 'Fees' },
+    ]},
+    { label: 'Resources', items: [
+      { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
+      { href: 'materials.html', icon: 'folder', text: 'Study Materials' },
+      { href: 'announcements.html', icon: 'campaign', text: 'Announcements' },
+      { href: 'timetable.html', icon: 'event_note', text: 'Time Table' }
+    ]}
+  ];
+  return markActive(nav, activeHref);
+}
+
+export function getFacultyNav(activeHref) {
+  const nav = [
+    { label: 'Faculty', items: [
+      { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+      { href: 'timetable.html', icon: 'calendar_today', text: 'My Schedule' },
+      { href: 'attendance.html', icon: 'calendar_month', text: 'Mark Attendance' },
+      { href: 'marks.html', icon: 'grade', text: 'Enter Marks' },
+      { href: 'materials.html', icon: 'library_books', text: 'Study Materials' },
+    ]},
+    { label: 'Communication', items: [
+      { href: 'announcements.html', icon: 'campaign', text: 'Announcements' },
+    ]}
+  ];
+  return markActive(nav, activeHref);
+}
+
+function markActive(nav, href) {
+  nav.forEach(s => s.items.forEach(i => i.active = i.href === href));
+  return nav;
+}
+
 // ── Build sidebar HTML ──
 export function buildSidebar(role, userName, navItems) {
   const initials = userName ? userName.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() : '??';
