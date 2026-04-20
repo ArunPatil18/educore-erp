@@ -103,16 +103,28 @@
         renderManualTT(mttSnap.data());
       } else {
         console.warn("Searching IDs:", [mttId, altId]);
-        // 2. Fallback to uploaded file link
-        // Log mismatch for debugging
-        console.warn(`Timetable not found for ID: ${mttId}. Please ensure Admin saved it correctly.`);
-        // 2. Fallback to uploaded file link
-        const ttQuery = query(collection(db, 'timetables'), where('department', '==', department), where('semester', '==', semester), where('section', '==', section || 'A'));
+        
+        // 2. Fallback to uploaded file link (Now also using Normalized strings)
+        const ttQuery = query(
+           collection(db, 'timetables'), 
+           where('department', '==', normDept), 
+           where('semester', '==', normSem), 
+           where('section', '==', normSec)
+        );
+        
         const ttSnap = await getDocs(ttQuery);
         if(!ttSnap.empty) {
           renderFileTT(ttSnap.docs[0].data());
         } else {
-          renderError("No timetable has been published for your class yet.");
+          renderError(`No timetable found for your class.<br><br>
+            <div style="font-size:12px; background:rgba(0,0,0,0.05); padding:12px; border-radius:8px; display:inline-block; text-align:left;">
+               <strong>Diagnostic Info:</strong><br>
+               • Dept: "${normDept}"<br>
+               • Sem: "${normSem}"<br>
+               • Sec: "${normSec}"<br>
+               • Search ID: <code>${mttId}</code>
+            </div><br><br>
+            Please ask Admin to verify these exact values match in your profile.`);
         }
       }
     }
