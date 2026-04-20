@@ -957,7 +957,6 @@
              });
           });
 
-          // Standardized docId construction
           const docId = `${dept}_${sem}_${sec}`;
           await setDoc(doc(db, 'manual_timetables', docId), {
              department: dept,
@@ -967,7 +966,7 @@
              updatedAt: serverTimestamp()
           });
 
-          showToast('Manual Timetable saved successfully!', 'success');
+          showToast(`Timetable saved for ${dept} (Sem ${sem}, Sec ${sec})`, 'success');
        } catch(err) {
           showToast('Save failed: ' + err.message, 'error');
        } finally {
