@@ -21,6 +21,33 @@
     .sem-header { display: flex; align-items: center; gap: 12px; margin: 24px 0 12px; }
     .sem-badge { background: linear-gradient(135deg,var(--primary-light),var(--primary-dark)); color:#fff; border-radius: var(--radius-full); padding: 4px 14px; font-size: 13px; font-weight: 700; }
     .sem-count { font-size: 12px; color: var(--text-muted); }
+    
+    /* Org Map (Flowchart) */
+    .org-container { padding: 40px 20px; overflow-x: auto; min-height: 500px; display: flex; justify-content: center; }
+    .org-tree, .org-tree ul, .org-tree li { position: relative; list-style: none; padding: 20px 0 0 0; text-align: center; }
+    .org-tree { display: flex; flex-direction: column; align-items: center; }
+    .org-tree ul { display: flex; justify-content: center; }
+    .org-tree li { padding: 20px 10px 0 10px; transition: var(--transition); }
+    .org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 1px solid var(--glass-border); width: 50%; height: 20px; }
+    .org-tree li::after { right: auto; left: 50%; border-left: 1px solid var(--glass-border); }
+    .org-tree li:only-child::after, .org-tree li:only-child::before { display: none; }
+    .org-tree li:only-child { padding-top: 0; }
+    .org-tree li:first-child::before, .org-tree li:last-child::after { border: none; }
+    .org-tree li:last-child::before { border-right: 1px solid var(--glass-border); border-radius: 0 5px 0 0; }
+    .org-tree li:first-child::after { border-radius: 5px 0 0 0; }
+    .org-tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 1px solid var(--glass-border); width: 0; height: 20px; }
+    
+    .node { cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; padding: 12px 20px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); min-width: 120px; box-shadow: var(--shadow-sm); position: relative; z-index: 2; transition: var(--transition); }
+    .node:hover { transform: scale(1.05); border-color: var(--primary-light); box-shadow: 0 8px 24px rgba(37,99,235,0.15); }
+    .node-title { font-weight: 700; font-size: 13px; color: var(--text-primary); }
+    .node-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
+    .node-count { position: absolute; top: -10px; right: -10px; background: var(--primary); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--radius-full); }
+    .node.root { background: linear-gradient(135deg, var(--primary-light), var(--primary-dark)); border: none; }
+    .node.root .node-title { color: #fff; font-size: 15px; }
+    .node.root .node-sub { color: rgba(255,255,255,0.7); }
+    
+    .student-pill { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(255,255,255,0.6); border: 1px solid var(--glass-border); border-radius: var(--radius-full); margin: 4px; font-size: 11px; white-space: nowrap; }
+    .student-grid { display: flex; flex-wrap: wrap; justify-content: center; max-width: 300px; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -32,6 +59,7 @@
       <div id="error-zone"></div>
       <div class="admin-tabs">
         <button class="admin-tab active" onclick="showTab('users')"><span class="icon icon-sm icon-filled">group</span> Users</button>
+        <button class="admin-tab" onclick="showTab('org')"><span class="icon icon-sm icon-filled">account_tree</span> Org Map</button>
         <button class="admin-tab" onclick="showTab('academics')"><span class="icon icon-sm icon-filled">menu_book</span> Academics</button>
         <button class="admin-tab" onclick="showTab('announce')"><span class="icon icon-sm icon-filled">campaign</span> Announcements</button>
         <button class="admin-tab" onclick="showTab('stats')"><span class="icon icon-sm icon-filled">bar_chart</span> Statistics</button>
@@ -62,6 +90,22 @@
         <div id="pane-admins" style="display:none;">
           <div id="admin-list"><div style="display:flex;align-items:center;justify-content:center;height:200px;"><div class="spinner" style="display:block;width:32px;height:32px;border-width:3px;"></div></div></div>
         </div>
+      </div>
+
+      <!-- Org Map Tab -->
+      <div class="tab-content" id="tab-org">
+         <div class="card" style="margin-bottom:24px; min-height:600px; overflow-x:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+               <div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text-primary);">Institutional Flow Chart</div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Hierarchical visualization of semesters, departments and sections</div>
+               </div>
+               <button class="btn btn-secondary" onclick="renderOrgMap()" style="padding:6px 12px; font-size:12px;"><span class="icon icon-sm">refresh</span> Refresh Map</button>
+            </div>
+            <div class="org-container" id="org-map-view">
+               <div style="display:flex;align-items:center;justify-content:center;height:200px;"><div class="spinner" style="display:block;width:32px;height:32px;border-width:3px;"></div></div>
+            </div>
+         </div>
       </div>
 
       <!-- Announcements Tab -->
@@ -372,6 +416,7 @@
       document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
       document.getElementById(`tab-${tab}`).classList.add('active');
       event.currentTarget.classList.add('active');
+      if (tab === 'org') renderOrgMap();
     };
 
     let activeSubTab = 'students';
@@ -474,6 +519,85 @@
     function renderAdmins(list) {
       const el = document.getElementById('admin-list');
       el.innerHTML = list.length ? list.map(u => userCard(u)).join('') : `<div style="text-align:center;padding:40px;color:var(--text-muted)">No admins found.</div>`;
+    }
+
+    function renderOrgMap() {
+       const students = allUsers.filter(u => u.role === 'student');
+       const view = document.getElementById('org-map-view');
+       if (!students.length) { view.innerHTML = '<div style="color:var(--text-muted)">No student data available.</div>'; return; }
+
+       // Grouping Logic: Year -> Sem -> Dept -> Sec
+       const hierarchy = {};
+       students.forEach(s => {
+          const sem = parseInt(s.semester) || 1;
+          const year = Math.ceil(sem / 2);
+          const yearLabel = `${year}${year===1?'st':year===2?'nd':year===3?'rd':'th'} Year`;
+          const dept = s.department || 'General';
+          const sec = s.section || 'A';
+
+          if (!hierarchy[yearLabel]) hierarchy[yearLabel] = {};
+          if (!hierarchy[yearLabel][`Sem ${sem}`]) hierarchy[yearLabel][`Sem ${sem}`] = {};
+          if (!hierarchy[yearLabel][`Sem ${sem}`][dept]) hierarchy[yearLabel][`Sem ${sem}`][dept] = {};
+          if (!hierarchy[yearLabel][`Sem ${sem}`][dept][sec]) hierarchy[yearLabel][`Sem ${sem}`][dept][sec] = [];
+          hierarchy[yearLabel][`Sem ${sem}`][dept][sec].push(s);
+       });
+
+       const buildNode = (label, sub, count, childrenHtml, isRoot = false) => `
+          <li>
+             <div class="node ${isRoot ? 'root' : ''}">
+                ${count ? `<div class="node-count">${count}</div>` : ''}
+                <div class="node-title">${label}</div>
+                <div class="node-sub">${sub}</div>
+             </div>
+             ${childrenHtml ? `<ul>${childrenHtml}</ul>` : ''}
+          </li>`;
+
+       let html = '<div class="org-tree"><ul>';
+       
+       // Root Node
+       const totalStudents = students.length;
+       let yearsHtml = '';
+       
+       Object.entries(hierarchy).sort().forEach(([year, sems]) => {
+          let semsHtml = '';
+          let yearCount = 0;
+          
+          Object.entries(sems).sort().forEach(([sem, depts]) => {
+             let deptsHtml = '';
+             let semCount = 0;
+             
+             Object.entries(depts).sort().forEach(([dept, secs]) => {
+                let secsHtml = '';
+                let deptCount = 0;
+                
+                Object.entries(secs).sort().forEach(([sec, studList]) => {
+                   deptCount += studList.length;
+                   const studentListHtml = `
+                      <div class="student-grid">
+                         ${studList.slice(0, 5).map(st => `
+                            <div class="student-pill" title="${st.name}">
+                               <div class="user-avatar" style="width:18px;height:18px;font-size:8px;">${(st.name||'?').slice(0,2).toUpperCase()}</div>
+                               ${st.name.split(' ')[0]}
+                            </div>`).join('')}
+                         ${studList.length > 5 ? `<div class="student-pill" style="opacity:0.6">+${studList.length-5} more</div>` : ''}
+                      </div>`;
+                   secsHtml += buildNode(`Section ${sec}`, 'Students', studList.length, `<li>${studentListHtml}</li>`);
+                });
+                
+                semCount += deptCount;
+                deptsHtml += buildNode(dept, 'Department', deptCount, secsHtml);
+             });
+             
+             yearCount += semCount;
+             semsHtml += buildNode(sem, 'Semester', semCount, deptsHtml);
+          });
+          
+          yearsHtml += buildNode(year, 'Academic Level', yearCount, semsHtml);
+       });
+
+       html += buildNode('EduCore University', 'Root Entity', totalStudents, yearsHtml, true);
+       html += '</ul></div>';
+       view.innerHTML = html;
     }
 
     function renderAll(list) {
