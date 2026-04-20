@@ -335,7 +335,7 @@
   <script type="module">
     import { requireAuth, logoutUser, getUserProfile, auth } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
-    import { collection, query, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
     import { getAuth, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-auth.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
     import { setDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
