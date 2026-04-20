@@ -94,6 +94,13 @@
 
       <!-- Org Map Tab -->
       <div class="tab-content" id="tab-org">
+         <div style="background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.2); border-radius:var(--radius-lg); padding:18px 24px; margin-bottom:24px; display:flex; align-items:flex-start; gap:16px;">
+            <div style="width:40px;height:40px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;"><span class="icon">help</span></div>
+            <div>
+               <div style="font-weight:700;color:var(--primary-dark);font-size:15px;margin-bottom:4px;">What is the Institutional Flow Chart?</div>
+               <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">This view visualizes your entire college hierarchy. You can see how many students are in each <strong>Year</strong>, <strong>Semester</strong>, and <strong>Section</strong> at a glance. It helps you ensure every class has a correctly assigned timetable.</div>
+            </div>
+         </div>
          <div class="card" style="margin-bottom:24px; min-height:600px; overflow-x:auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                <div>
@@ -326,7 +333,14 @@
           </div>
           <div class="grid-2">
             <div class="form-group"><label class="form-label">Role</label><select class="form-control" id="new-role"><option value="student">Student</option><option value="faculty">Faculty</option><option value="admin">Admin</option></select></div>
-            <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="new-dept" placeholder="e.g. Computer Science" /></div>
+            <div class="form-group"><label class="form-label">Department</label>
+              <select class="form-control" id="new-dept">
+                <option value="Computer Science">Computer Science</option>
+                <option value="Mechanical">Mechanical</option>
+                <option value="Civil">Civil</option>
+                <option value="Electrical">Electrical</option>
+              </select>
+            </div>
           </div>
           <div class="grid-2">
             <div class="form-group"><label class="form-label">Semester</label><input class="form-control" id="new-sem" type="number" min="1" max="8" placeholder="e.g. 5" /></div>
@@ -357,7 +371,14 @@
         <input type="hidden" id="edit-uid" />
         <div class="form-group"><label class="form-label">Full Name</label><input class="form-control" id="edit-name" required /></div>
         <div class="grid-2">
-          <div class="form-group"><label class="form-label">Department</label><input class="form-control" id="edit-dept" /></div>
+          <div class="form-group"><label class="form-label">Department</label>
+            <select class="form-control" id="edit-dept">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Mechanical">Mechanical</option>
+              <option value="Civil">Civil</option>
+              <option value="Electrical">Electrical</option>
+            </select>
+          </div>
           <div class="form-group"><label class="form-label">Semester</label><input class="form-control" id="edit-sem" type="number" min="1" max="8" /></div>
         </div>
         <div class="grid-2">
@@ -916,9 +937,9 @@
     };
 
     window.saveManualTimetable = async function() {
-       const dept = document.getElementById('mtt-dept').value;
+       const dept = document.getElementById('mtt-dept').value.trim();
        const sem = parseInt(document.getElementById('mtt-sem').value);
-       const sec = document.getElementById('mtt-sec').value;
+       const sec = document.getElementById('mtt-sec').value.trim();
        const btn = document.getElementById('save-tt-btn');
        btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;margin-right:8px;"></span> Saving...';
 
@@ -936,6 +957,7 @@
              });
           });
 
+          // Standardized docId construction
           const docId = `${dept}_${sem}_${sec}`;
           await setDoc(doc(db, 'manual_timetables', docId), {
              department: dept,
