@@ -75,8 +75,11 @@
 
       document.getElementById('tt-subtitle').textContent = `${department} — Semester ${semester}${section ? ' (Sec ' + section + ')' : ''}`;
 
-      // 1. Try fetching manual timetable
-      const mttId = `${department}_${semester}_${section || 'A'}`;
+      // 1. Try fetching manual timetable (Normalizing strings to handle legacy space issues)
+      const normDept = (department || '').trim();
+      const normSem = parseInt(semester) || 0;
+      const normSec = (section || 'A').trim();
+      const mttId = `${normDept}_${normSem}_${normSec}`;
       const mttSnap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', mttId)), null, null);
       
       if(mttSnap && mttSnap.exists()) {
