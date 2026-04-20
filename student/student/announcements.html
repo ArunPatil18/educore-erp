@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Announcements</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .ann-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-left: 3px solid var(--primary); border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 12px; display: flex; gap: 18px; transition: var(--transition); }
+    .ann-card:hover { border-color: var(--glass-border-hover); border-left-color: var(--primary-light); transform: translateX(4px); }
+    .ann-card.urgent { border-left-color: var(--danger); }
+    .ann-card.event { border-left-color: var(--secondary); }
+    .ann-card-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .ann-card-body { font-size: 14px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 12px; }
+    .ann-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+    .filter-pills { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+    .pill { padding: 7px 18px; border-radius: var(--radius-full); background: var(--bg-card); border: 1px solid var(--glass-border); color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); display: inline-flex; align-items: center; gap: 6px; }
+    .pill.active, .pill:hover { background: rgba(37,99,235,.15); border-color: var(--primary); color: var(--primary-light); }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header"><h1 class="page-title">Announcements</h1><div class="page-subtitle">College and department notices</div></div>
+      <div id="error-zone"></div>
+      <div class="filter-pills">
+        <div class="pill active" onclick="filterAnn('all',this)"><span class="icon icon-sm">segment</span> All</div>
+        <div class="pill" onclick="filterAnn('Urgent',this)"><span class="icon icon-sm">error</span> Urgent</div>
+        <div class="pill" onclick="filterAnn('Info',this)"><span class="icon icon-sm">info</span> Info</div>
+        <div class="pill" onclick="filterAnn('Event',this)"><span class="icon icon-sm">celebration</span> Events</div>
+      </div>
+      <div id="ann-list"><div style="display:flex;align-items:center;justify-content:center;height:30vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, formatDateTime } from '../js/utils.js';
+    const NAV = [
+      { label: 'Main', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
+        { href: 'fees.html', icon: 'payments', text: 'Fees' },
+      ]},
+      { label: 'Resources', items: [
+        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
+        { href: 'announcements.html', icon: 'campaign', text: 'Announcements', active: true },
+        { href: 'timetable.html', icon: 'event_note', text: 'Time Table' }
+      ]}
+    ];
+    let allAnn = [];
+    const iconMap = { Urgent: 'error', Event: 'celebration', Info: 'push_pin' };
+    window.filterAnn = function(type, el) {
+      document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+      el.classList.add('active');
+      renderAnn(type==='all'?allAnn:allAnn.filter(a=>a.priority===type));
+    };
+    function renderAnn(list) {
+      document.getElementById('ann-list').innerHTML = list.length ? list.map(a=>`
+        <div class="ann-card ${(a.priority||'info').toLowerCase()}">
+          <span class="icon icon-filled icon-lg" style="color:${a.priority==='Urgent'?'var(--danger)':a.priority==='Event'?'var(--secondary)':'var(--primary-light)'};padding-top:2px;flex-shrink:0">${iconMap[a.priority]||'push_pin'}</span>
+          <div style="flex:1">
+            <div class="ann-card-title">${a.title}</div>
+            <div class="ann-card-body">${a.body}</div>
+            <div class="ann-meta">
+              <span>${formatDateTime(a.createdAt)}</span>
+              <span class="badge ${a.priority==='Urgent'?'badge-danger':a.priority==='Event'?'badge-info':'badge-purple'}">${a.priority||'Info'}</span>
+              <span>${a.department||'All Departments'}</span>
+              ${a.author?`<span>${a.author}</span>`:''}
+            </div>
+          </div>
+        </div>`).join('') : `<div class="card" style="text-align:center;padding:48px;color:var(--text-muted)">No announcements found.</div>`;
+    }
+    async function init() {
+      try {
+        const { user } = await requireAuth(['student']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+        allAnn = await safeAsync(async () => { const q=query(collection(db,'announcements'),orderBy('createdAt','desc')); const s=await getDocs(q); return s.docs.map(d=>({id:d.id,...d.data()})); }, 'error-zone', 'Could not load announcements') || [];
+        renderAnn(allAnn);
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

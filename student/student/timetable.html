@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — My Time Table</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .tt-container { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); overflow: hidden; margin-top: 24px; }
+    .tt-header { padding: 24px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to right, rgba(37,99,235,0.05), transparent); }
+    .tt-grid-wrapper { overflow-x: auto; padding: 20px; }
+    .tt-table { width: 100%; border-collapse: separate; border-spacing: 8px; min-width: 800px; }
+    .tt-table th { padding: 16px; text-align: center; background: rgba(255,255,255,0.03); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); font-weight: 600; border: 1px solid var(--glass-border); }
+    .tt-table td { padding: 16px; text-align: center; background: var(--bg-document); border: 1px solid var(--glass-border); border-radius: var(--radius-md); transition: var(--transition); height: 100px; vertical-align: top; }
+    .tt-day-col { background: rgba(37,99,235,0.1) !important; color: var(--primary-light); font-weight: 700; width: 120px; display: flex; align-items: center; justify-content: center; height: 100%; font-size: 15px; }
+    .slot-sub { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+    .slot-code { font-size: 11px; color: var(--primary-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .slot-fac { font-size: 12px; color: var(--text-muted); }
+    .empty-slot { color: var(--text-muted); font-size: 12px; font-style: italic; display: flex; align-items: center; justify-content: center; height: 100%; }
+    .fallback-card { text-align: center; padding: 60px 40px; }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content">
+      <div class="page-header">
+        <h1 class="page-title">Class Time Table</h1>
+        <div class="page-subtitle" id="tt-subtitle">Viewing schedule for your section</div>
+      </div>
+      
+      <div id="tt-content">
+        <div style="display:flex;align-items:center;justify-content:center;height:40vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { requireAuth, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, formatDate, getSubjectColor, getSubjectBorder } from '../js/utils.js';
+
+    const NAV = [
+      { label: 'Main', items: [
+        { href: 'dashboard.html', icon: 'home', text: 'Dashboard' },
+        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
+        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
+        { href: 'fees.html', icon: 'payments', text: 'Fees' },
+      ]},
+      { label: 'Resources', items: [
+        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
+        { href: 'materials.html', icon: 'folder', text: 'Study Materials' },
+        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' },
+        { href: 'timetable.html', icon: 'event_note', text: 'Time Table', active: true }
+      ]}
+    ];
+
+    async function init() {
+      try {
+        const { user } = await requireAuth(['student']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('logout-btn').addEventListener('click', () => { window.location.href = '../index.html'; });
+        
+        loadTimetable(profile);
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+
+    async function loadTimetable(profile) {
+      const { department, semester, section } = profile;
+      if(!department || !semester) {
+        renderError("Your profile is missing department/semester info. Please contact admin.");
+        return;
+      }
+
+      const rawDept = (department || '').trim();
+      const rawSem = parseInt(semester) || 0;
+      const rawSec = (section || 'A').trim();
+      
+      document.getElementById('tt-subtitle').textContent = `${rawDept} — Semester ${rawSem}${rawSec ? ' (Sec ' + rawSec + ')' : ''}`;
+
+      try {
+         // Normalize Section (e.g., 'Section A' -> 'A')
+         const normSec = rawSec.includes('A') ? 'A' : rawSec.includes('B') ? 'B' : rawSec.includes('C') ? 'C' : rawSec.includes('D') ? 'D' : rawSec;
+         
+         // Normalize Department (Case-Insensitive Matcher)
+         const deptUpper = rawDept.toUpperCase();
+         const normDept = rawDept; 
+         const altDept = (deptUpper.includes('COMPUTER') || deptUpper === 'CS') ? 'Computer Science' : 
+                         (deptUpper.includes('MECH') || deptUpper === 'ME') ? 'Mechanical' : 
+                         (deptUpper.includes('ELECTRICAL') || deptUpper === 'EE') ? 'Electrical' : 
+                         (deptUpper.includes('CIVIL') || deptUpper === 'CE') ? 'Civil' : rawDept;
+
+         // Try multiple ID patterns to guarantee a match
+         // Pattern 1: Exactly as stored in profile
+         // Pattern 2: Standardized full name
+         // Pattern 3: Legacy Abbreviation
+         const ids = [
+            `${rawDept}_${rawSem}_${normSec}`,
+            `${altDept}_${rawSem}_${normSec}`,
+            `${(altDept === 'Computer Science' ? 'CS' : altDept === 'Mechanical' ? 'Mech' : altDept === 'Electrical' ? 'EE' : altDept === 'Civil' ? 'Civil' : altDept)}_${rawSem}_${normSec}`
+         ];
+         
+         const uniqueIds = [...new Set(ids)];
+         let mttSnap = null;
+         
+         for (const id of uniqueIds) {
+            const snap = await safeAsync(() => getDoc(doc(db, 'manual_timetables', id)), null, null);
+            if(snap && snap.exists()) {
+               mttSnap = snap;
+               break;
+            }
+         }
+         
+         if(mttSnap) {
+           renderManualTT(mttSnap.data());
+         } else {
+           // 2. Fallback to uploaded file link (Now also using Normalized strings)
+           const ttQuery = query(
+              collection(db, 'timetables'), 
+              where('department', '==', rawDept), 
+              where('semester', '==', rawSem), 
+              where('section', '==', normSec)
+           );
+           
+           const ttSnap = await safeAsync(() => getDocs(ttQuery), null, null);
+           if(ttSnap && !ttSnap.empty) {
+             renderFileTT(ttSnap.docs[0].data());
+           } else {
+             renderError(`No timetable found for your class.<br><br>
+               <div style="font-size:12px; background:rgba(0,0,0,0.05); padding:12px; border-radius:8px; display:inline-block; text-align:left; color:var(--text-secondary);">
+                  <strong>Diagnostic Info:</strong><br>
+                  • Dept: "${rawDept}"<br>
+                  • Sem: "${rawSem}"<br>
+                  • Sec: "${normSec}"<br>
+                  • Searched IDs: <code>${uniqueIds.join(', ')}</code>
+               </div><br><br>
+               Please ask Admin to verify if these values match exactly in the "Time Table" tab.`);
+           }
+         }
+      } catch (err) {
+         console.error("Timetable Load Error:", err);
+         renderError(`A system error occurred while loading your timetable.<br><small>${err.message}</small>`);
+      }
+    }
+
+    function renderManualTT(data) {
+      const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      const SLOTS = ['09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00', '12:00 - 01:00', '01:00 - 02:00', '02:00 - 03:00'];
+      
+      const now = new Date();
+      const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+      const currentTime = now.getHours() * 60 + now.getMinutes();
+
+      let html = `
+        <div class="tt-container">
+          <div class="tt-header">
+            <div>
+               <div style="font-weight:700;font-size:16px;">Weekly Academic Schedule</div>
+               <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Last updated: ${formatDate(data.updatedAt)}</div>
+            </div>
+            <div id="live-indicator" style="display:flex;align-items:center;gap:8px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--success);padding:6px 14px;border-radius:var(--radius-full);border:1px solid rgba(16,185,129,0.2);">
+               <span class="icon icon-sm" style="font-size:14px; animation: pulse 2s infinite;">online_prediction</span> System Live
+            </div>
+          </div>
+          <div class="tt-grid-wrapper">
+            <table class="tt-table">
+              <thead>
+                <tr>
+                  <th style="width:120px; background:transparent; border:none;"></th>
+                  ${SLOTS.map(s => `<th>${s}</th>`).join('')}
+                </tr>
+              </thead>
+              <tbody>`;
+
+      DAYS.forEach(day => {
+        const isToday = day === currentDay;
+        html += `<tr><td class="tt-day-col" style="${isToday ? 'background:var(--primary) !important; color:#fff;' : ''}">${day}${isToday ? ' <span style="font-size:10px; opacity:0.8; display:block; margin-top:4px;">(TODAY)</span>' : ''}</td>`;
+        
+        SLOTS.forEach(slot => {
+          const entry = data.slots.find(s => s.day === day && s.time === slot);
+          
+          // Check if slot is active
+          const [startStr, endStr] = slot.split(' - ');
+          const getMinutes = (str) => {
+             let [h, m] = str.split(':').map(Number);
+             // Simple logic: if hour is 1-8, it's likely PM (college hours)
+             if (h >= 1 && h <= 8) h += 12;
+             return h * 60 + m;
+          };
+          const startMin = getMinutes(startStr);
+          const endMin = getMinutes(endStr);
+          const active = isToday && (currentTime >= startMin && currentTime < endMin);
+
+          if(entry) {
+            const bgColor = getSubjectColor(entry.subjectCode);
+            const borderColor = getSubjectBorder(entry.subjectCode);
+            html += `
+              <td style="background:${bgColor}; border-color:${borderColor}; position:relative; ${active ? 'box-shadow: 0 0 0 2px var(--primary); z-index:2;' : ''}">
+                ${active ? '<div style="position:absolute; top:8px; right:8px; font-size:9px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold;">LIVE</div>' : ''}
+                <div class="slot-code" style="color:${borderColor.replace('0.4','1')}">${entry.subjectCode}</div>
+                <div class="slot-sub">${entry.subjectName}</div>
+                <div class="slot-fac" style="margin-top:8px; display:flex; align-items:center; gap:6px; justify-content:center;">
+                  <div style="width:20px; height:20px; border-radius:50%; background:rgba(255,255,255,0.1); font-size:10px; display:flex; align-items:center; justify-content:center;">${entry.subjectName.charAt(0)}</div>
+                  <span>Faculty</span>
+                </div>
+              </td>`;
+          } else {
+            html += `<td><div class="empty-slot" style="opacity:0.3">Free</div></td>`;
+          }
+        });
+        html += `</tr>`;
+      });
+
+      html += `</tbody></table></div></div>`;
+      document.getElementById('tt-content').innerHTML = html;
+    }
+
+    function renderFileTT(data) {
+      document.getElementById('tt-content').innerHTML = `
+        <div class="card fallback-card">
+          <div style="margin-bottom:24px;"><span class="icon icon-2xl" style="color:var(--primary-light);font-size:64px;">event_note</span></div>
+          <div style="font-size:18px;font-weight:700;margin-bottom:12px;">Class Timetable Available</div>
+          <p style="color:var(--text-secondary);margin-bottom:32px;">Your timetable has been uploaded as a file. Click below to view or download it.</p>
+          <a href="${data.fileUrl}" target="_blank" class="btn btn-primary" style="display:inline-flex;padding:12px 32px;">View Timetable File</a>
+        </div>`;
+    }
+
+    function renderError(msg) {
+      document.getElementById('tt-content').innerHTML = `
+        <div class="card fallback-card">
+          <div style="margin-bottom:24px;"><span class="icon icon-2xl" style="color:var(--warning);font-size:64px;">info</span></div>
+          <div style="font-size:16px;font-weight:600;color:var(--text-secondary);">${msg}</div>
+        </div>`;
+    }
+
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>
