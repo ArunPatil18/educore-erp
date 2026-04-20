@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EduCore ERP — Study Materials</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .mat-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 18px 22px; display: flex; align-items: center; gap: 16px; transition: var(--transition); margin-bottom: 10px; }
+    .mat-card:hover { border-color: var(--glass-border-hover); transform: translateX(4px); }
+    .mat-icon { width: 46px; height: 46px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: rgba(37,99,235,.12); }
+    .mat-info { flex: 1; min-width: 0; }
+    .mat-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mat-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .group-title { font-size: 15px; font-weight: 700; margin: 24px 0 12px; display: flex; align-items: center; gap: 10px; }
+  </style>
+</head>
+<body>
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main-content" id="content-area">
+      <div class="page-header"><h1 class="page-title" id="page-title">Study Materials</h1><div class="page-subtitle" id="page-subtitle">Download notes, slides and assignments shared by faculty</div></div>
+      <div id="error-zone"></div>
+      <div style="background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.2);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--primary-light);margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+        <span class="icon icon-sm">info</span> Materials are shared via Google Drive links. Click Open to view or download.
+      </div>
+      <input type="text" class="form-control" style="max-width:420px;margin-bottom:24px;" placeholder="Search materials..." id="search-inp" oninput="filterMats()" />
+      <div id="mat-list"><div style="display:flex;align-items:center;justify-content:center;height:30vh;"><div class="spinner" style="display:block;width:36px;height:36px;border-width:3px;"></div></div></div>
+    </main>
+  </div>
+  <div id="toast-container"></div>
+  <script type="module">
+    import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
+    import { db } from '../js/firebase-config.js';
+    import { collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+    import { buildSidebar, safeAsync, formatDate, getStudentNav } from '../js/utils.js';
+    let allMats = [];
+    function typeIcon(type) { const m={drive:'folder',pdf:'picture_as_pdf',ppt:'slideshow',doc:'description',other:'insert_drive_file'}; return m[type]||'insert_drive_file'; }
+    window.filterMats = function() {
+      const q = document.getElementById('search-inp').value.toLowerCase();
+      renderMats(allMats.filter(m=>(m.name||'').toLowerCase().includes(q)||(m.subjectName||'').toLowerCase().includes(q)||(m.subjectCode||'').toLowerCase().includes(q)));
+    };
+    const params = new URLSearchParams(window.location.search);
+    const targetCode = params.get('code');
+    const targetTitle = params.get('title');
+
+    function renderMats(list) {
+      if (!list.length) { document.getElementById('mat-list').innerHTML = `<div class="card" style="text-align:center;padding:48px;color:var(--text-muted)">No materials found for this subject yet.</div>`; return; }
+      
+      document.getElementById('mat-list').innerHTML = list.map(m=>`
+        <div class="mat-card">
+          <div class="mat-icon"><span class="icon icon-filled icon-lg" style="color:var(--primary-light)">${typeIcon(m.type)}</span></div>
+          <div class="mat-info"><div class="mat-name">${m.name}</div><div class="mat-meta">Shared by ${m.uploadedBy||'Faculty'} &middot; ${formatDate(m.uploadedAt)}${m.description?` &middot; ${m.description}`:''}</div></div>
+          <a href="${m.url}" target="_blank" rel="noopener" class="btn btn-primary" style="padding:9px 18px;font-size:13px;flex-shrink:0;">Open</a>
+        </div>`).join('');
+    }
+
+    async function init() {
+      try {
+        const { user } = await requireAuth(['student']);
+        const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, getStudentNav('materials.html'));
+        document.getElementById('logout-btn').addEventListener('click', logoutUser);
+
+        if (!targetCode) {
+           document.getElementById('content-area').innerHTML = `
+             <div style="text-align:center;padding:60px 20px;">
+               <div style="font-size:24px;font-weight:700;margin-bottom:10px;">Select a Course First</div>
+               <div style="color:var(--text-muted);margin-bottom:24px;">Please select a specific course from your catalog to view its materials.</div>
+               <a href="courses.html" class="btn btn-primary" style="display:inline-flex;padding:12px 24px;">Go to My Courses</a>
+             </div>`;
+           return;
+        }
+
+        document.getElementById('page-title').textContent = `${targetTitle} Materials`;
+        document.getElementById('page-subtitle').textContent = `View materials for course code ${targetCode}`;
+
+        allMats = await safeAsync(async () => {
+          const q = query(collection(db,'materials'), orderBy('uploadedAt','desc'));
+          const s = await getDocs(q);
+          const docs = s.docs.map(d=>({id:d.id,...d.data()}));
+          // Client side filter by target code
+          return docs.filter(m => (m.subjectCode||'').toLowerCase() === targetCode.toLowerCase());
+        }, 'error-zone', 'Could not load study materials') || [];
+        
+        renderMats(allMats);
+      } catch(e) { window.location.href = '../index.html'; }
+    }
+    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    init();
+  </script>
+</body>
+</html>

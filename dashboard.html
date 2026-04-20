@@ -38,35 +38,21 @@
   </div>
   <div id="toast-container"></div>
   <script type="module">
-    alert("DASHBOARD SCRIPT DETECTED");
     import { requireAuth, logoutUser, getUserProfile } from '../js/auth.js';
     import { db } from '../js/firebase-config.js';
     import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
-    import { showToast, buildSidebar, formatDate, safeAsync } from '../js/utils.js';
+    import { showToast, buildSidebar, formatDate, safeAsync, getStudentNav } from '../js/utils.js';
     import { initMessaging } from '../js/messaging.js';
-    const NAV = [
-      { label: 'Main', items: [
-        { href: 'dashboard.html', icon: 'home', text: 'Dashboard', active: true },
-        { href: 'attendance.html', icon: 'calendar_month', text: 'Attendance' },
-        { href: 'marks.html', icon: 'grade', text: 'Marks & Results' },
-        { href: 'fees.html', icon: 'payments', text: 'Fees' },
-      ]},
-      { label: 'Resources', items: [
-        { href: 'courses.html', icon: 'menu_book', text: 'My Courses' },
-        { href: 'announcements.html', icon: 'campaign', text: 'Announcements' }
-      ]}
-    ];
     async function init() {
       try {
         const { user } = await requireAuth(['student']);
         const profile = await safeAsync(() => getUserProfile(user.uid), null, null) || {};
-        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, NAV);
+        document.getElementById('sidebar').innerHTML = buildSidebar('Student', profile.name || user.email, getStudentNav('dashboard.html'));
         document.getElementById('logout-btn').addEventListener('click', logoutUser);
         await loadDashboard(user.uid, profile);
         initMessaging(user.uid);
       } catch (e) { 
-        console.error("DEBUG: Dashboard Init Failed:", e);
-        // window.location.href = '../index.html'; 
+        window.location.href = '../index.html'; 
       }
     }
     async function loadDashboard(uid, profile) {
@@ -103,7 +89,8 @@
             <div class="section-title">Quick Access</div>
             <div class="quick-links">
               <a href="attendance.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--primary-light)">calendar_month</span><div class="quick-link-label">Attendance</div></a>
-              <a href="marks.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--secondary)">grade</span><div class="quick-link-label">Marks</div></a>
+              <a href="timetable.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--secondary)">event_note</span><div class="quick-link-label">Time Table</div></a>
+              <a href="marks.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--secondary-dark)">grade</span><div class="quick-link-label">Marks</div></a>
               <a href="fees.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--warning)">payments</span><div class="quick-link-label">Fees</div></a>
               <a href="materials.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--accent)">library_books</span><div class="quick-link-label">Materials</div></a>
               <a href="announcements.html" class="quick-link-card"><span class="icon icon-filled icon-2xl" style="color:var(--success)">campaign</span><div class="quick-link-label">Notices</div></a>
