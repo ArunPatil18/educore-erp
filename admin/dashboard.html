@@ -22,32 +22,41 @@
     .sem-badge { background: linear-gradient(135deg,var(--primary-light),var(--primary-dark)); color:#fff; border-radius: var(--radius-full); padding: 4px 14px; font-size: 13px; font-weight: 700; }
     .sem-count { font-size: 12px; color: var(--text-muted); }
     
-    /* Org Map (Flowchart) */
-    .org-container { padding: 40px 20px; overflow-x: auto; min-height: 500px; display: flex; justify-content: center; }
-    .org-tree, .org-tree ul, .org-tree li { position: relative; list-style: none; padding: 20px 0 0 0; text-align: center; }
+    /* Org Map (Modern Flowchart) */
+    .org-container { padding: 40px 20px; overflow-x: auto; min-height: 600px; display: flex; justify-content: center; background: radial-gradient(circle at center, rgba(37,99,235,0.03) 0%, transparent 70%); border-radius: var(--radius-xl); }
+    .org-tree, .org-tree ul, .org-tree li { position: relative; list-style: none; padding: 30px 0 0 0; text-align: center; transition: var(--transition); }
     .org-tree { display: flex; flex-direction: column; align-items: center; }
     .org-tree ul { display: flex; justify-content: center; }
-    .org-tree li { padding: 20px 10px 0 10px; transition: var(--transition); }
-    .org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 1px solid var(--glass-border); width: 50%; height: 20px; }
-    .org-tree li::after { right: auto; left: 50%; border-left: 1px solid var(--glass-border); }
+    .org-tree li { padding: 30px 15px 0 15px; }
+    .org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid rgba(15,23,42,0.1); width: 50%; height: 30px; z-index: 1; }
+    .org-tree li::after { right: auto; left: 50%; border-left: 2px solid rgba(15,23,42,0.1); }
     .org-tree li:only-child::after, .org-tree li:only-child::before { display: none; }
     .org-tree li:only-child { padding-top: 0; }
     .org-tree li:first-child::before, .org-tree li:last-child::after { border: none; }
-    .org-tree li:last-child::before { border-right: 1px solid var(--glass-border); border-radius: 0 5px 0 0; }
-    .org-tree li:first-child::after { border-radius: 5px 0 0 0; }
-    .org-tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 1px solid var(--glass-border); width: 0; height: 20px; }
+    .org-tree li:last-child::before { border-right: 2px solid rgba(15,23,42,0.1); border-radius: 0 16px 0 0; }
+    .org-tree li:first-child::after { border-radius: 16px 0 0 0; }
+    .org-tree ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid rgba(15,23,42,0.1); width: 0; height: 30px; }
     
-    .node { cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; padding: 12px 20px; background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-md); min-width: 120px; box-shadow: var(--shadow-sm); position: relative; z-index: 2; transition: var(--transition); }
-    .node:hover { transform: scale(1.05); border-color: var(--primary-light); box-shadow: 0 8px 24px rgba(37,99,235,0.15); }
-    .node-title { font-weight: 700; font-size: 13px; color: var(--text-primary); }
-    .node-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; }
-    .node-count { position: absolute; top: -10px; right: -10px; background: var(--primary); color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: var(--radius-full); }
-    .node.root { background: linear-gradient(135deg, var(--primary-light), var(--primary-dark)); border: none; }
-    .node.root .node-title { color: #fff; font-size: 15px; }
+    .node { cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; padding: 16px 24px; background: var(--bg-surface); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); min-width: 160px; box-shadow: var(--shadow-md); position: relative; z-index: 2; transition: var(--transition); user-select: none; }
+    .node:hover { transform: translateY(-5px); border-color: var(--primary-light); box-shadow: 0 12px 32px rgba(37,99,235,0.12); }
+    .node-icon { width: 40px; height: 40px; background: rgba(37,99,235,0.08); color: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; transition: var(--transition); }
+    .node:hover .node-icon { background: var(--primary); color: #fff; transform: rotate(5deg); }
+    .node-title { font-weight: 700; font-size: 14px; color: var(--text-primary); font-family: var(--font-display); }
+    .node-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 2px; letter-spacing: 0.05em; font-weight: 600; }
+    .node-count { position: absolute; top: -12px; right: -12px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: var(--radius-full); box-shadow: 0 4px 12px rgba(37,99,235,0.3); border: 2px solid #fff; }
+    .node.root { background: linear-gradient(135deg, var(--primary-light), var(--primary-dark)); border: none; min-width: 200px; padding: 20px 32px; }
+    .node.root .node-icon { background: rgba(255,255,255,0.2); color: #fff; }
+    .node.root .node-title { color: #fff; font-size: 16px; }
     .node.root .node-sub { color: rgba(255,255,255,0.7); }
     
-    .student-pill { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(255,255,255,0.6); border: 1px solid var(--glass-border); border-radius: var(--radius-full); margin: 4px; font-size: 11px; white-space: nowrap; }
-    .student-grid { display: flex; flex-wrap: wrap; justify-content: center; max-width: 300px; margin-top: 10px; }
+    .expand-btn { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); width: 24px; height: 24px; background: #fff; border: 1px solid var(--glass-border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: var(--shadow-sm); transition: var(--transition); }
+    .expand-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .collapsed ul { display: none !important; }
+    .collapsed .expand-btn .icon { transform: rotate(180deg); }
+    
+    .student-pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #fff; border: 1px solid rgba(15,23,42,0.06); border-radius: var(--radius-md); margin: 4px; font-size: 12px; font-weight: 500; transition: var(--transition); box-shadow: var(--shadow-sm); }
+    .student-pill:hover { border-color: var(--primary-light); transform: scale(1.02); }
+    .student-grid { display: flex; flex-wrap: wrap; justify-content: center; max-width: 320px; margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(15,23,42,0.1); }
   </style>
 </head>
 <body>
@@ -107,7 +116,11 @@
                   <div style="font-size:16px;font-weight:700;color:var(--text-primary);">Institutional Flow Chart</div>
                   <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Hierarchical visualization of semesters, departments and sections</div>
                </div>
-               <button class="btn btn-secondary" onclick="renderOrgMap()" style="padding:6px 12px; font-size:12px;"><span class="icon icon-sm">refresh</span> Refresh Map</button>
+               <div style="display:flex; gap:8px;">
+                  <button class="btn btn-secondary" onclick="toggleAllOrg(true)" style="padding:6px 12px; font-size:12px;"><span class="icon icon-sm">expand</span> Expand All</button>
+                  <button class="btn btn-secondary" onclick="toggleAllOrg(false)" style="padding:6px 12px; font-size:12px;"><span class="icon icon-sm">collapse</span> Collapse All</button>
+                  <button class="btn btn-primary" onclick="renderOrgMap()" style="padding:6px 12px; font-size:12px;"><span class="icon icon-sm">refresh</span> Refresh Map</button>
+               </div>
             </div>
             <div class="org-container" id="org-map-view">
                <div style="display:flex;align-items:center;justify-content:center;height:200px;"><div class="spinner" style="display:block;width:32px;height:32px;border-width:3px;"></div></div>
@@ -542,12 +555,24 @@
       el.innerHTML = list.length ? list.map(u => userCard(u)).join('') : `<div style="text-align:center;padding:40px;color:var(--text-muted)">No admins found.</div>`;
     }
 
+    window.toggleNodeOrg = function(btn) {
+       const li = btn.closest('li');
+       li.classList.toggle('collapsed');
+    };
+
+    window.toggleAllOrg = function(expand) {
+       document.querySelectorAll('.org-tree li').forEach(li => {
+          if (li.querySelector('ul')) {
+             li.classList.toggle('collapsed', !expand);
+          }
+       });
+    };
+
     function renderOrgMap() {
        const students = allUsers.filter(u => u.role === 'student');
        const view = document.getElementById('org-map-view');
        if (!students.length) { view.innerHTML = '<div style="color:var(--text-muted)">No student data available.</div>'; return; }
 
-       // Grouping Logic: Year -> Sem -> Dept -> Sec
        const hierarchy = {};
        students.forEach(s => {
           const sem = parseInt(s.semester) || 1;
@@ -563,34 +588,39 @@
           hierarchy[yearLabel][`Sem ${sem}`][dept][sec].push(s);
        });
 
-       const buildNode = (label, sub, count, childrenHtml, isRoot = false) => `
+       const icons = {
+          root: 'account_balance',
+          year: 'history_edu',
+          sem: 'subtitles',
+          dept: 'hub',
+          sec: 'diversity_3',
+          students: 'group'
+       };
+
+       const buildNode = (label, sub, count, type, childrenHtml, isRoot = false) => `
           <li>
              <div class="node ${isRoot ? 'root' : ''}">
                 ${count ? `<div class="node-count">${count}</div>` : ''}
+                <div class="node-icon"><span class="icon">${icons[type] || 'circle'}</span></div>
                 <div class="node-title">${label}</div>
                 <div class="node-sub">${sub}</div>
+                ${childrenHtml && type !== 'sec' ? `<div class="expand-btn" onclick="toggleNodeOrg(this)"><span class="icon icon-sm">expand_more</span></div>` : ''}
              </div>
              ${childrenHtml ? `<ul>${childrenHtml}</ul>` : ''}
           </li>`;
 
        let html = '<div class="org-tree"><ul>';
-       
-       // Root Node
-       const totalStudents = students.length;
        let yearsHtml = '';
        
        Object.entries(hierarchy).sort().forEach(([year, sems]) => {
           let semsHtml = '';
           let yearCount = 0;
-          
           Object.entries(sems).sort().forEach(([sem, depts]) => {
              let deptsHtml = '';
              let semCount = 0;
-             
              Object.entries(depts).sort().forEach(([dept, secs]) => {
                 let secsHtml = '';
                 let deptCount = 0;
-                
                 Object.entries(secs).sort().forEach(([sec, studList]) => {
                    deptCount += studList.length;
                    const studentListHtml = `
@@ -600,23 +630,20 @@
                                <div class="user-avatar" style="width:18px;height:18px;font-size:8px;">${(st.name||'?').slice(0,2).toUpperCase()}</div>
                                ${st.name.split(' ')[0]}
                             </div>`).join('')}
-                         ${studList.length > 5 ? `<div class="student-pill" style="opacity:0.6">+${studList.length-5} more</div>` : ''}
+                         ${studList.length > 5 ? `<div class="student-pill" style="opacity:0.6; cursor:pointer;" onclick="showTab('users'); document.getElementById('user-search').value='Section ${sec}'; filterUsers();">+${studList.length-5} more</div>` : ''}
                       </div>`;
-                   secsHtml += buildNode(`Section ${sec}`, 'Students', studList.length, `<li>${studentListHtml}</li>`);
+                   secsHtml += buildNode(`Section ${sec}`, 'Classroom', studList.length, 'sec', `<li>${studentListHtml}</li>`);
                 });
-                
                 semCount += deptCount;
-                deptsHtml += buildNode(dept, 'Department', deptCount, secsHtml);
+                deptsHtml += buildNode(dept, 'Department', deptCount, 'dept', secsHtml);
              });
-             
              yearCount += semCount;
-             semsHtml += buildNode(sem, 'Semester', semCount, deptsHtml);
+             semsHtml += buildNode(sem, 'Academic Term', semCount, 'sem', deptsHtml);
           });
-          
-          yearsHtml += buildNode(year, 'Academic Level', yearCount, semsHtml);
+          yearsHtml += buildNode(year, 'Grade Level', yearCount, 'year', semsHtml);
        });
 
-       html += buildNode('EduCore University', 'Root Entity', totalStudents, yearsHtml, true);
+       html += buildNode('EduCore University', 'Central Administration', students.length, 'root', yearsHtml, true);
        html += '</ul></div>';
        view.innerHTML = html;
     }
