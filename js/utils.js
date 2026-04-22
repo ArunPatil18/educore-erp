@@ -136,10 +136,10 @@ export function buildSidebar(role, userName, navItems) {
   return `
     <div class="sidebar-logo">
       <a class="logo-mark" href="/">
-        <div class="logo-icon"><span class="icon icon-filled icon-xl" style="color:#fff;">school</span></div>
+        <div class="logo-icon"><img src="../favicon.png" alt="MyClg Logo" style="width:32px;height:32px;border-radius:6px;"></div>
         <div>
-          <div class="logo-text">EduCore</div>
-          <div class="logo-sub">ERP PLATFORM</div>
+          <div class="logo-text">MyClg</div>
+          <div class="logo-sub">ERP SYSTEM</div>
         </div>
       </a>
     </div>
