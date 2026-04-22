@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduCore ERP — Admin Panel</title>
+  <title>MyClg ERP System — Admin Panel</title>
   <link rel="stylesheet" href="../css/style.css" />
   <style>
     .admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px; }
@@ -422,9 +422,9 @@
     // Secondary Firebase app — so creating users does NOT log out the admin
     const secondaryApp = initializeApp({
       apiKey: "AIzaSyANtl6NgF4_nhUWBxn9exIBcXrfBHNePVE",
-      authDomain: "educore-erp.firebaseapp.com",
-      projectId: "educore-erp",
-      storageBucket: "educore-erp.firebasestorage.app",
+      authDomain: "MyClg-erp.firebaseapp.com",
+      projectId: "MyClg-erp",
+      storageBucket: "MyClg-erp.firebasestorage.app",
       messagingSenderId: "671546845544",
       appId: "1:671546845544:web:55739b3f4181613aed0edd"
     }, 'secondary');
@@ -643,7 +643,7 @@
           yearsHtml += buildNode(year, 'Grade Level', yearCount, 'year', semsHtml);
        });
 
-       html += buildNode('EduCore University', 'Central Administration', students.length, 'root', yearsHtml, true);
+       html += buildNode('MyClg University', 'Central Administration', students.length, 'root', yearsHtml, true);
        html += '</ul></div>';
        view.innerHTML = html;
     }
